@@ -1,8 +1,17 @@
 # ned_config_creator #
 
-  vhis is still an idea to test the concept of "automatically" create arbitrary device configuration from an NSO NED YANG model.
+This is still an idea to test the concept of "automatically" create arbitrary device configuration from an NSO NED YANG model.
 
-It consists of two parts:
+## TODO ##
+ - Possibility to generate config for selected parts of a YANG model.
+ - Support for when statements in some way, possibly using functions. Not sure
+   if it is possible to do in a generalized way.
+ - Support for max-elements.
+ - Run tests to identify issues in various parts of the model.
+ - ???
+
+
+## Contents ##
  - pmod.py
    A pyang plugin to extract the required information from the YANG module(s) and store as a json structure.
    This is much dfaster to load than reparsing the modules every time.
@@ -13,7 +22,7 @@ It consists of two parts:
    It is currently very limted and the ongoing work is mainly to identify the main issues of creating pure random data.
 
 
-Limitations:
+## Limitations ##
  - pmod.py:
    max-elements not handled.
    leafref not handled.
@@ -33,7 +42,7 @@ at multiple levels have been added:
  - Generators for selected patterns that have caused creation of invalid strings.
 
 
-Dependencies:
+## Dependencies ##
  - Tested with pyang version 2.5.2 from github.
  - NCS_DIR must be set to find dependent modules.
 
@@ -41,7 +50,7 @@ Dependencies:
 The cisco-ios-cli-6.77 YANG is currently included for development purposes.
 
 
-Usage:
+## Usage ##
 
 Build the json schema file: tailf-ned-cisco-ios.schema
 > make
