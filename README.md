@@ -90,6 +90,41 @@ pmpd.py is decending from standard jstree.py plugin.
         "annotations": {}
     }
 
+## Element encoding ##
+
+
+**Container**
+
+    "trigger": [
+         "container",
+         {
+            # Members...
+         }
+    ]
+
+
+**List**
+
+    "ip": [
+        "list",
+        {
+            # Members...
+        },
+        [ # Key leafs (list of tuples with module and leaf name)
+            [ "tailf-ned-cisco-ios", "divert-code" ]
+        ]
+    ]
+
+**Leaf**
+
+    "rate": [
+        "leaf",
+        [
+            "uint16", # Datatype
+            []        # Type specific restrictions
+        ]
+    ],
+
 ## Datatype encoding ##
 
 ### numerical types ###
@@ -161,4 +196,11 @@ pmpd.py is decending from standard jstree.py plugin.
     [
         "ns-leafref",
         "../../../../../cable/downstream-pilot-tone/profile/id"
+    ]
+
+**Empty leafs**
+
+    [
+        "empty",
+        null
     ]
