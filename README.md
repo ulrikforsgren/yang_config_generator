@@ -24,17 +24,21 @@ This is still an idea to test the concept of "automatically" create arbitrary de
 
 ## Limitations ##
  - pmod.py:
-   max-elements not handled.
-   leafref not handled.
-   instance-identifier datatype not handled.
-   bits datatype not handled.
-   when statements not handled.
+  - max-elements not handled.
+  - leafref not handled.
+  - instance-identifier datatype not handled.
+  - bits datatype not handled.
+  - when statements not handled.
+  - Altered/complemented restrictions of user defined datatypes (typedefs) are
+    not collected properly. Fortunately not very common...
  - create_xml.py:
-   Unicode patterns used in some ieft string datatypes i.e \p{L} is replaced with a more restrictive pattern [a-zA-Z).
-   Unicode patterns used in some ieft string datatypes i.e \p{N} is replaced with a more restrictive pattern [0-9).
-   .* and .+ (dot) pattern is replaced with [a-z0-9]{0/1,15} to restrict the strings to be created.
-   Number of list entries created is hardcoded to 1
-
+  - Unicode patterns used in some ieft string datatypes i.e \p{L} is replaced with a more restrictive pattern [a-zA-Z).
+  - Unicode patterns used in some ieft string datatypes i.e \p{N} is replaced with a more restrictive pattern [0-9).
+  - .* and .+ (dot) pattern is replaced with [a-z0-9]{0/1,15} to restrict the strings to be created.
+  - Number of list entries created is hardcoded to 1
+ - Generic
+  - Module prefixes are not handled in a unified way. It is present on to elements
+    and some datatypes.
 To futher control creation and mitigate arised issues a possibility to use functions
 at multiple levels have been added:
  - Generators for some datatypes e.g.: inet:ipv4-address, inet:ipv4-address, ...
@@ -52,10 +56,114 @@ The cisco-ios-cli-6.77 YANG is currently included for development purposes.
 
 ## Usage ##
 
-Build the json schema file: tailf-ned-cisco-ios.schema
+Build the json schema file: tailf-ned-cisco-ios.json
+`
 > make
+`
 
 
-Generate config to be loaded into nso: ios.xml
-> make ios.xml
+Generate config to be loaded into nso under /devices/device{ce0}: ios.xml
+`
+make ios.xml
+`
+**NOTE!** It is not 100% guaranteed that all data will be accepted by NSO.
 
+
+## Json schema format ##
+
+The advantage of using pyang to pre-process the YANG modules and create a single
+schema file that is to have a model that loads fast and is easy to traverse, with
+the interesting information directly accessible. In this case the key leafs for
+lists and datatypes of leafs and their restrictions.
+
+pmpd.py is decending from standard jstree.py plugin.
+
+`
+{
+    "modules": {
+        ...
+    },
+    "tree": {
+        ...
+    },
+    "typedefs": {
+        ...
+    },
+
+    "annotations": {}
+}
+`
+
+## Datatype encoding ##
+
+### numerical types ###
+
+**integers**
+
+`
+            "uint16",
+            [
+                [ # Ranges
+                    0,
+                    7
+                ]
+                # May contain zero or more ranges
+            ]
+`
+
+**decimal64**
+
+`
+            "decimal64",
+            [
+                1, # Fraction digits
+                [ # Ranges
+                    0.0,
+                    8.0
+                ]
+                # May contain zero or more ranges
+            ]
+`
+
+
+***Enumerations**
+
+`
+            "enumeration",
+            [
+                "eq",
+                "ge",
+                "gt",
+                "le",
+                "lt",
+                "ne"
+            ]
+`
+
+**strings**
+
+`
+            "string",
+            [
+                [ # Lengths
+                    [
+                        5,
+                        10
+                    ]
+                    # May contain zero of more lengths
+                ],
+                [ # Patterns
+                    "[0-9a-fA-F]{1,6}:[0-9a-fA-F]{1,8}"
+                    # May contain zero of more lengths
+                ]
+            ]
+`
+
+**non-strict leafref**
+
+`
+            [
+                "ns-leafref",
+                "../../../../../cable/downstream-pilot-tone/profile/id"
+            ]
+`
