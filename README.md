@@ -57,15 +57,11 @@ The cisco-ios-cli-6.77 YANG is currently included for development purposes.
 ## Usage ##
 
 Build the json schema file: tailf-ned-cisco-ios.json
-`
-> make
-`
+    > make
 
 
 Generate config to be loaded into nso under /devices/device{ce0}: ios.xml
-`
-make ios.xml
-`
+    > make ios.xml
 **NOTE!** It is not 100% guaranteed that all data will be accepted by NSO.
 
 
@@ -100,70 +96,69 @@ pmpd.py is decending from standard jstree.py plugin.
 
 **integers**
 
-`
-            "uint16",
-            [
-                [ # Ranges
-                    0,
-                    7
-                ]
-                # May contain zero or more ranges
+    [
+        "uint16",
+        [
+            [ # Ranges
+                0,
+                7
             ]
-`
+            # May contain zero or more ranges
+        ]
+    ]
 
 **decimal64**
 
-`
-            "decimal64",
-            [
-                1, # Fraction digits
-                [ # Ranges
-                    0.0,
-                    8.0
-                ]
-                # May contain zero or more ranges
+    [
+        "decimal64",
+        [
+            1, # Fraction digits
+            [ # Ranges
+                0.0,
+                8.0
             ]
-`
+            # May contain zero or more ranges
+        ]
+    ]
 
 
 ***Enumerations**
 
-`
-            "enumeration",
-            [
-                "eq",
-                "ge",
-                "gt",
-                "le",
-                "lt",
-                "ne"
-            ]
-`
+    [
+        "enumeration",
+        [
+            "eq",
+            "ge",
+            "gt",
+            "le",
+            "lt",
+            "ne"
+        ]
+    ]
+
 
 **strings**
 
-`
-            "string",
-            [
-                [ # Lengths
-                    [
-                        5,
-                        10
-                    ]
-                    # May contain zero of more lengths
-                ],
-                [ # Patterns
-                    "[0-9a-fA-F]{1,6}:[0-9a-fA-F]{1,8}"
-                    # May contain zero of more lengths
+    [
+        "string",
+        [
+            [ # Lengths
+                [
+                    5,
+                    10
                 ]
+                # May contain zero of more lengths
+            ],
+            [ # Patterns
+                "[0-9a-fA-F]{1,6}:[0-9a-fA-F]{1,8}"
+                # May contain zero of more lengths
             ]
-`
+        ]
+    ]
 
 **non-strict leafref**
 
-    `
-        [
-            "ns-leafref",
-            "../../../../../cable/downstream-pilot-tone/profile/id"
-        ]
-    `
+    [
+        "ns-leafref",
+        "../../../../../cable/downstream-pilot-tone/profile/id"
+    ]
