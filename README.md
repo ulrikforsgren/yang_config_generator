@@ -57,11 +57,14 @@ The cisco-ios-cli-6.77 YANG is currently included for development purposes.
 ## Usage ##
 
 Build the json schema file: tailf-ned-cisco-ios.json
+
     > make
 
 
 Generate config to be loaded into nso under /devices/device{ce0}: ios.xml
+
     > make ios.xml
+
 **NOTE!** It is not 100% guaranteed that all data will be accepted by NSO.
 
 
@@ -74,21 +77,18 @@ lists and datatypes of leafs and their restrictions.
 
 pmpd.py is decending from standard jstree.py plugin.
 
-`
-{
-    "modules": {
-        ...
-    },
-    "tree": {
-        ...
-    },
-    "typedefs": {
-        ...
-    },
-
-    "annotations": {}
-}
-`
+    {
+        "modules": {
+            ...
+        },
+        "tree": {
+            ...
+        },
+        "typedefs": {
+            ...
+        },
+        "annotations": {}
+    }
 
 ## Datatype encoding ##
 
