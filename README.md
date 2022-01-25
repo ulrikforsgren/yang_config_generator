@@ -161,9 +161,9 @@ pmpd.py is decending from standard jstree.py plugin.
 
 **non-strict leafref**
 
-`
-            [
-                "ns-leafref",
-                "../../../../../cable/downstream-pilot-tone/profile/id"
-            ]
-`
+```
+        [
+            "ns-leafref",
+            "../../../../../cable/downstream-pilot-tone/profile/id"
+        ]
+```
