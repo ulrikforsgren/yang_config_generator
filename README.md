@@ -3,12 +3,12 @@
 This is still an idea to test the concept of "automatically" create arbitrary device configuration from an NSO NED YANG model.
 
 ## TODO ##
- - Possibility to generate config for selected parts of a YANG model.
- - Support for when statements in some way, possibly using functions. Not sure
+* Possibility to generate config for selected parts of a YANG model.
+* Support for when statements in some way, possibly using functions. Not sure
    if it is possible to do in a generalized way.
- - Support for min/max-elements.
- - Run tests to identify issues in various parts of the model.
- - ???
+* Support for min/max-elements.
+* Run tests to identify issues in various parts of the model.
+* ???
 
 
 ## Contents ##
@@ -23,34 +23,34 @@ This is still an idea to test the concept of "automatically" create arbitrary de
 
 
 ## Limitations ##
- * pmod.py:
-  * min/max-elements not handled.
-  * leafref not handled.
-  * instance-identifier datatype not handled.
-  * bits datatype not handled.
-  * when statements not handled.
-  * Altered/complemented restrictions of user defined datatypes (typedefs) are
+* pmod.py:
+    * min/max-elements not handled.
+    * leafref not handled.
+    * instance-identifier datatype not handled.
+    * bits datatype not handled.
+    * when statements not handled.
+    * Altered/complemented restrictions of user defined datatypes (typedefs) are
     not collected properly. Fortunately not very common...
- * create_xml.py:
-  * Unicode patterns used in some ieft string datatypes i.e \p{L} is replaced with a more restrictive pattern [a-zA-Z).
-  * Unicode patterns used in some ieft string datatypes i.e \p{N} is replaced with a more restrictive pattern [0-9).
-  * .* and .+ (dot) pattern is replaced with [a-z0-9]{0/1,15} to restrict the strings to be created.
-  * Number of list entries created is hardcoded to 1
- * Generic
-  * Module prefixes are not handled in a unified way. It is present on to elements
-    and some datatypes.
+* create_xml.py:
+    * Unicode patterns used in some ieft string datatypes i.e \p{L} is replaced with a more restrictive pattern [a-zA-Z).
+    * Unicode patterns used in some ieft string datatypes i.e \p{N} is replaced with a more restrictive pattern [0-9).
+    * .* and .+ (dot) pattern is replaced with [a-z0-9]{0/1,15} to restrict the strings to be created.
+    * Number of list entries created is hardcoded to 1
+* Generic
+    * Module prefixes are not handled in a unified way. It is present on to elements
+      and some datatypes.
 
 ## Generator functions ##
 To futher control creation and mitigate arised issues a possibility to use functions
 at multiple levels have been added:
- - Generators for some datatypes e.g.: inet:ipv4-address, inet:ipv4-address, ...
- - Generators for network interface names
- - Generators for selected patterns that have caused creation of invalid strings.
+* Generators for some datatypes e.g.: inet:ipv4-address, inet:ipv4-address, ...
+* Generators for network interface names
+* Generators for selected patterns that have caused creation of invalid strings.
 
 
 ## Dependencies ##
- - Tested with pyang version 2.5.2 from github.
- - NCS_DIR must be set to find dependent modules.
+* Tested with pyang version 2.5.2 from github.
+* NCS_DIR must be set to find dependent modules.
 
 
 The cisco-ios-cli-6.77 YANG is currently included for development purposes.
