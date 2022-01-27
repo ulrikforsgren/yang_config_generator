@@ -25,6 +25,8 @@ This is still an idea to test the concept of "automatically" create arbitrary de
 ## Limitations ##
 * pmod.py:
     * min/max-elements not handled.
+    * presence container not handled.
+    * mandatory not handled.
     * leafref not handled.
     * instance-identifier datatype not handled.
     * bits datatype not handled.
