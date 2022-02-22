@@ -258,6 +258,9 @@ class PModPlugin(plugin.PyangPlugin):
             for st in subtypes:
                 ta.append(self.type_data(st))
             rt = (ts.name, ta)
+        elif n == 'leafref':
+            path = t.search_one('path')
+            rt = (ts.name, path.arg)
         else:
             raise TypeError(f"Can't handle type: {t.arg} {n}")
         return rt

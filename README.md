@@ -27,7 +27,6 @@ This is still an idea to test the concept of "automatically" create arbitrary de
     * min/max-elements not handled.
     * presence container not handled.
     * mandatory not handled.
-    * leafref not handled.
     * instance-identifier datatype not handled.
     * bits datatype not handled.
     * when statements not handled.
@@ -200,6 +199,13 @@ pmpd.py is decending from standard jstree.py plugin.
     [
         "ns-leafref",
         "../../../../../cable/downstream-pilot-tone/profile/id"
+    ]
+
+**leafref**
+
+    [
+        "leafref",
+        "../../key/name"
     ]
 
 **Empty leafs**
