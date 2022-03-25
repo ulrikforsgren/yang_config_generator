@@ -295,6 +295,14 @@ def generate_random_data(datatype, schema, node):
         mi, mx, *step = r
         step = step[0] if step else 1
         if mx is None: mx = mi
+    if mi == 'min':
+        mi = ilimits[dt][0]
+    elif mi == 'max':
+        mi = ilimits[dt][1]
+    if mx == 'min':
+        mx = ilimits[dt][0]
+    elif mx == 'max':
+        mx = ilimits[dt][1]
     return str(random.randrange(mi, mx+1, step))
   elif dt == 'enumeration':
     return random.choice(r)
@@ -317,7 +325,8 @@ def generate_random_data(datatype, schema, node):
       return g(datatype)
     else:
       return generate_random_data(typedefs[r], schema, node) # Expand typedef
-  elif dt == 'ns-leafref':
+  elif dt in [ 'ns-leafref', 'leafref' ] :
+    # TODO: leafref must point to an existing leaf
     path = r.split('/')
     if path[0] == '..':
       n=node
