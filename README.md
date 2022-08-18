@@ -2,6 +2,11 @@
 
 This is still an idea to test the concept of "automatically" create arbitrary device configuration from an NSO NED YANG model.
 
+## Priorities ##
+* Fix the support for namespaces so that iteration and referencing leafs and
+  typedefs works. Only very optimistic implementation today.
+
+
 ## TODO ##
 * Possibility to generate config for selected parts of a YANG model.
 * Support for when statements in some way, possibly using functions. Not sure
