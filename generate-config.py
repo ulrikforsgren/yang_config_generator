@@ -40,6 +40,8 @@ def parseArgs(args):
                                           help='Compiled YANG module (json)')
     parser.add_argument('-o', '--output', type=str, required=False,
                                           help='Output file name')
+    parser.add_argument("--hierarchy", required=False, action='store_true', default=False)
+    parser.add_argument("--one-level", required=False, action='store_true', default=False)
 #    parser.add_argument('cmd', choices=['clean', 'create', 'read',
 #                                        'update', 'delete', 'crud'])
 #    parser.add_argument("-n", required=False, type=int)
@@ -449,6 +451,31 @@ def iter_schema(ch, doc, path=None, schema=None, json_schema=None, typedefs=None
     else:
       raise Exception(f"Unhandled type {type(t)}")
 
+def print_schema(args, ch, path=None, schema=None, json_schema=None, indent=0):
+  path = path or tuple()
+  for k,t in ch:
+      if ':' in k:
+          m,k = k.split(':')
+      tp = path + (k,)
+      if isinstance(t, Container):
+          print(f"{' '*(indent*4)}{k} (container)")
+          if not args.one_level:
+              print_schema(args, t, path=tp, schema=schema, json_schema=json_schema,
+                        indent=indent+1)
+      elif isinstance(t, List):
+          keys = ','.join(t.key_leafs)
+          print(f"{' '*(indent*4)}{k} (list: {keys})")
+          if not args.one_level:
+              print_schema(args, t, path=tp, schema=schema, json_schema=json_schema,
+                          indent=indent+1)
+      elif isinstance(t, Choice):
+          # Only print container or list choices
+          for k in t.choices.keys():
+              print(f"{' '*(indent*4)}{k} (choice")
+              m = t[k]
+              print_schema(args, m.items(), path=tp, schema=schema,
+                         json_schema=json_schema, indent=indent+1)
+
 
 
 def main(args):
@@ -463,10 +490,13 @@ def main(args):
     dev_config = ET.SubElement(device, "config")
 
     s = Schema(tree)
-    iter_schema(s, dev_config, schema=s, json_schema=schema, typedefs=typedefs)
+    if not args.hierarchy:
+        iter_schema(s, dev_config, schema=s, json_schema=schema, typedefs=typedefs)
 
-    output_file = open(args.output, 'w') if args.output else sys.stdout
-    output_file.write(prettify(config))
+        output_file = open(args.output, 'w') if args.output else sys.stdout
+        output_file.write(prettify(config))
+    else:
+        print_schema(args, s, schema=s, json_schema=schema)
 
 if __name__ == "__main__":
     main(parseArgs(sys.argv[1:]))
