@@ -1,0 +1,1309 @@
+{
+    "modules": {
+        "router": [
+            "r",
+            "http://example.com/router"
+        ],
+        "tailf-common": [
+            "tailf",
+            "http://tail-f.com/yang/common"
+        ],
+        "ietf-yang-types": [
+            "yang",
+            "urn:ietf:params:xml:ns:yang:ietf-yang-types"
+        ],
+        "ietf-inet-types": [
+            "inet",
+            "urn:ietf:params:xml:ns:yang:ietf-inet-types"
+        ]
+    },
+    "tree": {
+        "router:hostname": [
+            "leaf",
+            [
+                "string",
+                [
+                    [],
+                    []
+                ]
+            ]
+        ],
+        "router:sys": [
+            "container",
+            {
+                "interfaces": [
+                    "container",
+                    {
+                        "interface": [
+                            "list",
+                            {
+                                "name": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "interfaceName"
+                                    ]
+                                ],
+                                "description": [
+                                    "leaf",
+                                    [
+                                        "string",
+                                        [
+                                            [],
+                                            []
+                                        ]
+                                    ]
+                                ],
+                                "enabled": [
+                                    "leaf",
+                                    [
+                                        "empty",
+                                        null
+                                    ]
+                                ],
+                                "speed": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "interfaceSpeed"
+                                    ]
+                                ],
+                                "duplex": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "interfaceDuplex"
+                                    ]
+                                ],
+                                "mtu": [
+                                    "leaf",
+                                    [
+                                        "int16",
+                                        [
+                                            [
+                                                68,
+                                                1500
+                                            ]
+                                        ]
+                                    ]
+                                ],
+                                "mac": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "yang:mac-address"
+                                    ]
+                                ],
+                                "status": [
+                                    "container",
+                                    {
+                                        "link": [
+                                            "leaf",
+                                            [
+                                                "enumeration",
+                                                [
+                                                    "up",
+                                                    "down"
+                                                ]
+                                            ]
+                                        ],
+                                        "speed": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "interfaceSpeed"
+                                            ]
+                                        ],
+                                        "duplex": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "interfaceDuplex"
+                                            ]
+                                        ],
+                                        "mtu": [
+                                            "leaf",
+                                            [
+                                                "int32",
+                                                []
+                                            ]
+                                        ],
+                                        "mac": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "yang:mac-address"
+                                            ]
+                                        ],
+                                        "receive": [
+                                            "container",
+                                            {
+                                                "bytes": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter64"
+                                                    ]
+                                                ],
+                                                "packets": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter64"
+                                                    ]
+                                                ],
+                                                "errors": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter32"
+                                                    ]
+                                                ],
+                                                "dropped": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter32"
+                                                    ]
+                                                ]
+                                            }
+                                        ],
+                                        "transmit": [
+                                            "container",
+                                            {
+                                                "bytes": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter64"
+                                                    ]
+                                                ],
+                                                "packets": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter64"
+                                                    ]
+                                                ],
+                                                "errors": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter32"
+                                                    ]
+                                                ],
+                                                "dropped": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter32"
+                                                    ]
+                                                ],
+                                                "collisions": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "yang:counter32"
+                                                    ]
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "unit": [
+                                    "list",
+                                    {
+                                        "name": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "interfaceLogicalUnit"
+                                            ]
+                                        ],
+                                        "enabled": [
+                                            "leaf",
+                                            [
+                                                "boolean",
+                                                null
+                                            ]
+                                        ],
+                                        "description": [
+                                            "leaf",
+                                            [
+                                                "string",
+                                                [
+                                                    [],
+                                                    []
+                                                ]
+                                            ]
+                                        ],
+                                        "vlan-id": [
+                                            "leaf",
+                                            [
+                                                "uint16",
+                                                []
+                                            ]
+                                        ],
+                                        "arp": [
+                                            "leaf-list",
+                                            [
+                                                "enumeration",
+                                                [
+                                                    "no-gratuitous-arp-reply",
+                                                    "no-gratuitous-arp-request"
+                                                ]
+                                            ]
+                                        ],
+                                        "status": [
+                                            "container",
+                                            {
+                                                "receive": [
+                                                    "container",
+                                                    {
+                                                        "bytes": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter64"
+                                                            ]
+                                                        ],
+                                                        "packets": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter64"
+                                                            ]
+                                                        ],
+                                                        "errors": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter32"
+                                                            ]
+                                                        ],
+                                                        "dropped": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter32"
+                                                            ]
+                                                        ]
+                                                    }
+                                                ],
+                                                "transmit": [
+                                                    "container",
+                                                    {
+                                                        "bytes": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter64"
+                                                            ]
+                                                        ],
+                                                        "packets": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter64"
+                                                            ]
+                                                        ],
+                                                        "errors": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter32"
+                                                            ]
+                                                        ],
+                                                        "dropped": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter32"
+                                                            ]
+                                                        ],
+                                                        "collisions": [
+                                                            "leaf",
+                                                            [
+                                                                "typedef",
+                                                                "yang:counter32"
+                                                            ]
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ],
+                                        "family": [
+                                            "container",
+                                            {
+                                                "family": [
+                                                    "choice",
+                                                    {
+                                                        "c1": {
+                                                            "inet": [
+                                                                "container",
+                                                                {
+                                                                    "address": [
+                                                                        "list",
+                                                                        {
+                                                                            "name": [
+                                                                                "leaf",
+                                                                                [
+                                                                                    "typedef",
+                                                                                    "inet:ipv4-address"
+                                                                                ]
+                                                                            ],
+                                                                            "prefix-length": [
+                                                                                "leaf",
+                                                                                [
+                                                                                    "typedef",
+                                                                                    "prefixLengthIPv4"
+                                                                                ]
+                                                                            ],
+                                                                            "broadcast": [
+                                                                                "leaf",
+                                                                                [
+                                                                                    "typedef",
+                                                                                    "inet:ipv4-address"
+                                                                                ]
+                                                                            ]
+                                                                        },
+                                                                        [
+                                                                            [
+                                                                                "router",
+                                                                                "name"
+                                                                            ]
+                                                                        ]
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        },
+                                                        "c2": {
+                                                            "inet6": [
+                                                                "container",
+                                                                {
+                                                                    "address": [
+                                                                        "list",
+                                                                        {
+                                                                            "name": [
+                                                                                "leaf",
+                                                                                [
+                                                                                    "typedef",
+                                                                                    "inet:ipv6-address"
+                                                                                ]
+                                                                            ],
+                                                                            "prefix-length": [
+                                                                                "leaf",
+                                                                                [
+                                                                                    "typedef",
+                                                                                    "prefixLengthIPv6"
+                                                                                ]
+                                                                            ]
+                                                                        },
+                                                                        [
+                                                                            [
+                                                                                "router",
+                                                                                "name"
+                                                                            ]
+                                                                        ]
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    [
+                                        [
+                                            "router",
+                                            "name"
+                                        ]
+                                    ]
+                                ]
+                            },
+                            [
+                                [
+                                    "router",
+                                    "name"
+                                ]
+                            ]
+                        ]
+                    }
+                ],
+                "routes": [
+                    "container",
+                    {
+                        "inet": [
+                            "container",
+                            {
+                                "route": [
+                                    "list",
+                                    {
+                                        "name": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "inet:ipv4-address"
+                                            ]
+                                        ],
+                                        "prefix-length": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "prefixLengthIPv4"
+                                            ]
+                                        ],
+                                        "description": [
+                                            "leaf",
+                                            [
+                                                "string",
+                                                [
+                                                    [],
+                                                    []
+                                                ]
+                                            ]
+                                        ],
+                                        "enabled": [
+                                            "leaf",
+                                            [
+                                                "boolean",
+                                                null
+                                            ]
+                                        ],
+                                        "type": [
+                                            "leaf",
+                                            [
+                                                "enumeration",
+                                                [
+                                                    "next-hop",
+                                                    "reject",
+                                                    "discard",
+                                                    "prohibit"
+                                                ]
+                                            ]
+                                        ],
+                                        "next-hop": [
+                                            "list",
+                                            {
+                                                "name": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "inet:ipv4-address"
+                                                    ]
+                                                ],
+                                                "metric": [
+                                                    "leaf",
+                                                    [
+                                                        "int32",
+                                                        []
+                                                    ]
+                                                ]
+                                            },
+                                            [
+                                                [
+                                                    "router",
+                                                    "name"
+                                                ]
+                                            ]
+                                        ]
+                                    },
+                                    [
+                                        [
+                                            "router",
+                                            "name"
+                                        ],
+                                        [
+                                            "router",
+                                            "prefix-length"
+                                        ]
+                                    ]
+                                ]
+                            }
+                        ],
+                        "inet6": [
+                            "container",
+                            {
+                                "route": [
+                                    "list",
+                                    {
+                                        "name": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "inet:ipv6-address"
+                                            ]
+                                        ],
+                                        "prefix-length": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "prefixLengthIPv6"
+                                            ]
+                                        ],
+                                        "description": [
+                                            "leaf",
+                                            [
+                                                "string",
+                                                [
+                                                    [],
+                                                    []
+                                                ]
+                                            ]
+                                        ],
+                                        "enabled": [
+                                            "leaf",
+                                            [
+                                                "boolean",
+                                                null
+                                            ]
+                                        ],
+                                        "type": [
+                                            "leaf",
+                                            [
+                                                "enumeration",
+                                                [
+                                                    "next-hop",
+                                                    "reject"
+                                                ]
+                                            ]
+                                        ],
+                                        "next-hop": [
+                                            "list",
+                                            {
+                                                "name": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "inet:ipv6-address"
+                                                    ]
+                                                ],
+                                                "metric": [
+                                                    "leaf",
+                                                    [
+                                                        "int32",
+                                                        []
+                                                    ]
+                                                ],
+                                                "interface": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "interfaceName"
+                                                    ]
+                                                ],
+                                                "unit": [
+                                                    "leaf",
+                                                    [
+                                                        "typedef",
+                                                        "interfaceLogicalUnit"
+                                                    ]
+                                                ]
+                                            },
+                                            [
+                                                [
+                                                    "router",
+                                                    "name"
+                                                ]
+                                            ]
+                                        ]
+                                    },
+                                    [
+                                        [
+                                            "router",
+                                            "name"
+                                        ],
+                                        [
+                                            "router",
+                                            "prefix-length"
+                                        ]
+                                    ]
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "syslog": [
+                    "container",
+                    {
+                        "server": [
+                            "list",
+                            {
+                                "name": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "inet:host"
+                                    ]
+                                ],
+                                "enabled": [
+                                    "leaf",
+                                    [
+                                        "boolean",
+                                        null
+                                    ]
+                                ],
+                                "selector": [
+                                    "list",
+                                    {
+                                        "name": [
+                                            "leaf",
+                                            [
+                                                "int32",
+                                                []
+                                            ]
+                                        ],
+                                        "negate": [
+                                            "leaf",
+                                            [
+                                                "boolean",
+                                                null
+                                            ]
+                                        ],
+                                        "comparison": [
+                                            "leaf",
+                                            [
+                                                "enumeration",
+                                                [
+                                                    "same-or-higher",
+                                                    "same"
+                                                ]
+                                            ]
+                                        ],
+                                        "level": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "syslogLevel"
+                                            ]
+                                        ],
+                                        "facility": [
+                                            "leaf-list",
+                                            [
+                                                "typedef",
+                                                "syslogFacility"
+                                            ]
+                                        ]
+                                    },
+                                    [
+                                        [
+                                            "router",
+                                            "name"
+                                        ]
+                                    ]
+                                ],
+                                "administrator": [
+                                    "leaf",
+                                    [
+                                        "string",
+                                        [
+                                            [],
+                                            []
+                                        ]
+                                    ]
+                                ]
+                            },
+                            [
+                                [
+                                    "router",
+                                    "name"
+                                ]
+                            ]
+                        ]
+                    }
+                ],
+                "ntp": [
+                    "container",
+                    {
+                        "server": [
+                            "list",
+                            {
+                                "name": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "inet:host"
+                                    ]
+                                ],
+                                "enabled": [
+                                    "leaf",
+                                    [
+                                        "boolean",
+                                        null
+                                    ]
+                                ],
+                                "peer": [
+                                    "leaf",
+                                    [
+                                        "boolean",
+                                        null
+                                    ]
+                                ],
+                                "iburst": [
+                                    "leaf",
+                                    [
+                                        "empty",
+                                        null
+                                    ]
+                                ],
+                                "version": [
+                                    "leaf",
+                                    [
+                                        "int8",
+                                        [
+                                            [
+                                                1,
+                                                4
+                                            ]
+                                        ]
+                                    ]
+                                ],
+                                "key": [
+                                    "leaf",
+                                    [
+                                        "leafref",
+                                        "../../key/name"
+                                    ]
+                                ],
+                                "status": [
+                                    "container",
+                                    {
+                                        "state": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpState"
+                                            ]
+                                        ],
+                                        "stratum": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpStratum"
+                                            ]
+                                        ],
+                                        "reach": [
+                                            "leaf",
+                                            [
+                                                "string",
+                                                [
+                                                    [],
+                                                    []
+                                                ]
+                                            ]
+                                        ],
+                                        "delay": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpDecimal"
+                                            ]
+                                        ],
+                                        "offset": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpDecimal"
+                                            ]
+                                        ],
+                                        "jitter": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpDecimal"
+                                            ]
+                                        ]
+                                    }
+                                ]
+                            },
+                            [
+                                [
+                                    "router",
+                                    "name"
+                                ]
+                            ]
+                        ],
+                        "local-clock": [
+                            "container",
+                            {
+                                "enabled": [
+                                    "leaf",
+                                    [
+                                        "boolean",
+                                        null
+                                    ]
+                                ],
+                                "stratum": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "ntpStratum"
+                                    ]
+                                ],
+                                "status": [
+                                    "container",
+                                    {
+                                        "state": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpState"
+                                            ]
+                                        ],
+                                        "stratum": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpStratum"
+                                            ]
+                                        ],
+                                        "reach": [
+                                            "leaf",
+                                            [
+                                                "string",
+                                                [
+                                                    [],
+                                                    []
+                                                ]
+                                            ]
+                                        ],
+                                        "delay": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpDecimal"
+                                            ]
+                                        ],
+                                        "offset": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpDecimal"
+                                            ]
+                                        ],
+                                        "jitter": [
+                                            "leaf",
+                                            [
+                                                "typedef",
+                                                "ntpDecimal"
+                                            ]
+                                        ]
+                                    }
+                                ]
+                            }
+                        ],
+                        "restrict": [
+                            "list",
+                            {
+                                "name": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "ntpRestrictName"
+                                    ]
+                                ],
+                                "mask": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "ntpRestrictMask"
+                                    ]
+                                ],
+                                "flag": [
+                                    "leaf-list",
+                                    [
+                                        "typedef",
+                                        "ntpRestrictFlag"
+                                    ]
+                                ]
+                            },
+                            [
+                                [
+                                    "router",
+                                    "name"
+                                ],
+                                [
+                                    "router",
+                                    "mask"
+                                ]
+                            ]
+                        ],
+                        "key": [
+                            "list",
+                            {
+                                "name": [
+                                    "leaf",
+                                    [
+                                        "uint8",
+                                        [
+                                            [
+                                                1,
+                                                "max"
+                                            ]
+                                        ]
+                                    ]
+                                ],
+                                "value": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "ntpKeyValue"
+                                    ]
+                                ],
+                                "trusted": [
+                                    "leaf",
+                                    [
+                                        "boolean",
+                                        null
+                                    ]
+                                ]
+                            },
+                            [
+                                [
+                                    "router",
+                                    "name"
+                                ]
+                            ]
+                        ],
+                        "requestkey": [
+                            "leaf",
+                            [
+                                "leafref",
+                                "../key/name"
+                            ]
+                        ],
+                        "controlkey": [
+                            "leaf",
+                            [
+                                "leafref",
+                                "../key/name"
+                            ]
+                        ]
+                    }
+                ],
+                "dns": [
+                    "container",
+                    {
+                        "search": [
+                            "list",
+                            {
+                                "name": [
+                                    "leaf",
+                                    [
+                                        "int32",
+                                        []
+                                    ]
+                                ],
+                                "domain": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "inet:host"
+                                    ]
+                                ]
+                            },
+                            [
+                                [
+                                    "router",
+                                    "name"
+                                ]
+                            ]
+                        ],
+                        "server": [
+                            "list",
+                            {
+                                "address": [
+                                    "leaf",
+                                    [
+                                        "typedef",
+                                        "inet:ip-address"
+                                    ]
+                                ]
+                            },
+                            [
+                                [
+                                    "router",
+                                    "address"
+                                ]
+                            ]
+                        ],
+                        "options": [
+                            "container",
+                            {
+                                "ndots": [
+                                    "leaf",
+                                    [
+                                        "uint8",
+                                        []
+                                    ]
+                                ],
+                                "timeout": [
+                                    "leaf",
+                                    [
+                                        "uint8",
+                                        []
+                                    ]
+                                ],
+                                "attempts": [
+                                    "leaf",
+                                    [
+                                        "uint8",
+                                        []
+                                    ]
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "typedefs": {
+        "interfaceName": [
+            "string",
+            [
+                [
+                    [
+                        1,
+                        30
+                    ]
+                ],
+                []
+            ]
+        ],
+        "interfaceSpeed": [
+            "enumeration",
+            [
+                "ten",
+                "hundred",
+                "thousand"
+            ]
+        ],
+        "interfaceDuplex": [
+            "enumeration",
+            [
+                "half",
+                "full"
+            ]
+        ],
+        "yang:mac-address": [
+            "string",
+            [
+                [],
+                []
+            ]
+        ],
+        "yang:counter64": [
+            "uint64",
+            []
+        ],
+        "yang:counter32": [
+            "uint32",
+            []
+        ],
+        "interfaceLogicalUnit": [
+            "int32",
+            [
+                [
+                    0,
+                    9999
+                ]
+            ]
+        ],
+        "inet:ipv4-address": [
+            "string",
+            [
+                [],
+                []
+            ]
+        ],
+        "prefixLengthIPv4": [
+            "int32",
+            [
+                [
+                    0,
+                    32
+                ]
+            ]
+        ],
+        "inet:ipv6-address": [
+            "string",
+            [
+                [],
+                []
+            ]
+        ],
+        "prefixLengthIPv6": [
+            "int32",
+            [
+                [
+                    0,
+                    128
+                ]
+            ]
+        ],
+        "inet:ip-address": [
+            "union",
+            [
+                [
+                    "typedef",
+                    "inet:ipv4-address"
+                ],
+                [
+                    "typedef",
+                    "inet:ipv6-address"
+                ]
+            ]
+        ],
+        "inet:domain-name": [
+            "string",
+            [
+                [
+                    [
+                        1,
+                        253
+                    ]
+                ],
+                []
+            ]
+        ],
+        "inet:host": [
+            "union",
+            [
+                [
+                    "typedef",
+                    "inet:ip-address"
+                ],
+                [
+                    "typedef",
+                    "inet:domain-name"
+                ]
+            ]
+        ],
+        "syslogLevel": [
+            "enumeration",
+            [
+                "emerg",
+                "alert",
+                "crit",
+                "err",
+                "warning",
+                "notice",
+                "info",
+                "debug",
+                "none",
+                "all"
+            ]
+        ],
+        "syslogFacility": [
+            "enumeration",
+            [
+                "auth",
+                "authpriv",
+                "cron",
+                "daemon",
+                "ftp",
+                "kern",
+                "lpr",
+                "mail",
+                "news",
+                "security",
+                "syslog",
+                "user",
+                "uucp",
+                "local0",
+                "local1",
+                "local2",
+                "local3",
+                "local4",
+                "local5",
+                "local6",
+                "local7",
+                "all"
+            ]
+        ],
+        "ntpState": [
+            "enumeration",
+            [
+                "reject",
+                "falsetick",
+                "excess",
+                "outlyer",
+                "candidate",
+                "selected",
+                "syspeer",
+                "ppspeer",
+                "unknown"
+            ]
+        ],
+        "ntpStratum": [
+            "uint8",
+            [
+                [
+                    0,
+                    15
+                ]
+            ]
+        ],
+        "ntpDecimal": [
+            "int32",
+            []
+        ],
+        "ntpRestrictName": [
+            "union",
+            [
+                [
+                    "enumeration",
+                    [
+                        "default"
+                    ]
+                ],
+                [
+                    "typedef",
+                    "inet:host"
+                ]
+            ]
+        ],
+        "ntpRestrictMask": [
+            "union",
+            [
+                [
+                    "enumeration",
+                    [
+                        "default"
+                    ]
+                ],
+                [
+                    "typedef",
+                    "inet:ip-address"
+                ]
+            ]
+        ],
+        "ntpRestrictFlag": [
+            "enumeration",
+            [
+                "ignore",
+                "kod",
+                "limited",
+                "lowpriotrap",
+                "nomodify",
+                "nopeer",
+                "noquery",
+                "noserve",
+                "notrap",
+                "notrust",
+                "ntpport",
+                "version"
+            ]
+        ],
+        "ntpKeyValue": [
+            "string",
+            [
+                [],
+                []
+            ]
+        ]
+    },
+    "annotations": {}
+}
