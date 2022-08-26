@@ -261,6 +261,9 @@ class PModPlugin(plugin.PyangPlugin):
         elif n == 'leafref':
             path = t.search_one('path')
             rt = (ts.name, path.arg)
+        elif n == 'identityref':
+            base = t.search_one('base')
+            rt = (ts.name, base.arg)
         else:
             raise TypeError(f"Can't handle type: {t.arg} {n}")
         return rt

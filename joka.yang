@@ -1,0 +1,19 @@
+module joka {
+  yang-version "1";
+
+  // namespace
+  namespace "joka.se";
+  prefix "joka";
+
+	identity SUPER {
+		description "suuuuuuuuuper!";
+	}
+
+	container hello {
+		leaf test {
+			type identityref {
+				base SUPER;
+			}
+		}
+	}
+}

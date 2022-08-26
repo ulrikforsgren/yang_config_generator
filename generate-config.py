@@ -379,6 +379,8 @@ def generate_random_data(datatype, schema, node, typedefs):
       if g:
         return g(n.datatype)
     return generate_random_data(n.datatype, schema, n, typedefs)
+  elif dt == 'identityref':
+    return r
 
   raise Exception(f"Unhandled datatype: {dt}")
 
