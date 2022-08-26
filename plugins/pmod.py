@@ -67,6 +67,8 @@ def replace_patterns(p):
 
 def flatten_union(lst):
   for i in lst:
+    if i is None:
+        continue
     t,p = i
     if t == 'union':
       for t2, p2 in flatten_union(p):
@@ -164,6 +166,8 @@ class PModPlugin(plugin.PyangPlugin):
             elif ch.keyword in ["leaf", "leaf-list"]:
                 st = ch.search_one("type")
                 dt = self.type_data(st)
+                if dt is None:
+                    continue
                 nst = ch.search_one(('tailf-common','non-strict-leafref'))
                 if nst:
                     path = nst.search_one('path')
@@ -278,6 +282,8 @@ class PModPlugin(plugin.PyangPlugin):
         elif n == 'identityref':
             base = t.search_one('base')
             rt = (ts.name, base.arg)
+        elif n == 'binary':
+            return None
         else:
             raise TypeError(f"Can't handle type: {t.arg} {n}")
         return rt
