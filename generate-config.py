@@ -355,13 +355,15 @@ def generate_random_data(datatype, schema, node, typedefs, identities):
   elif dt in [ 'ns-leafref', 'leafref' ] :
     # TODO: leafref must point to an existing leaf
     path = r.split('/')
+    # TODO: handle paths with paths inside [ ]
+    # ex: "/oc-if:interfaces/oc-if:interface[oc-if:name=current()/../interface]/oc-if:subinterfaces/oc-if:subinterface/oc-if:index"
     if path[0] == '..':
       n=node
     else:
       n = schema
       path = path[1:]
     for m in path:
-      if ':' in m: m = m.split(':')[1]
+      if ':' in m: m = m.split(':', 1)[1]
       if m == '..':
         n = n.parent
       else:
@@ -381,10 +383,19 @@ def generate_random_data(datatype, schema, node, typedefs, identities):
     return generate_random_data(n.datatype, schema, n, typedefs, identities)
   elif dt == 'identityref':
     if r in identities:
-        return random.choice(identities[r])
+        return pick_identity(identities, r)
+    elif ':' in r:
+        r_no_prefix = r.split(':')[1]
+        if r_no_prefix in identities:
+            return pick_identity(identities, r_no_prefix)
+
     raise Exception(f"Unknown identity: {r}")
 
   raise Exception(f"Unhandled datatype: {dt}")
+
+
+def pick_identity(identities, r):
+    return r if len(identities[r]) == 0 else random.choice(identities[r])
 
 
 def build_kp(node):
