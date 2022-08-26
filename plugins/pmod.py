@@ -103,6 +103,7 @@ class PModPlugin(plugin.PyangPlugin):
         mods = {}
         annots = {}
         self.typedefs = {}
+        self.identities = {}
         for m,p in unique_prefixes(ctx).items():
             mods[m.i_modulename] = [p, m.search_one("namespace").arg]
         for module in modules:
@@ -112,11 +113,18 @@ class PModPlugin(plugin.PyangPlugin):
                     "string" if typ is None else self.base_type(ann, typ))
         #print("-"*80)
         for module in modules:
+            for i,st in module.i_identities.items():
+                for b in st.search("base"):
+                    self.identities[b.arg].append(i)
+                self.identities[i] = []
+
+        for module in modules:
             self.process_children(module, tree, None)
         json.dump({
             "modules": mods,
             "tree": tree,
             "typedefs": self.typedefs,
+            "identities": self.identities,
             "annotations": annots
             }, fd)
         #pprint(tree)

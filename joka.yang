@@ -2,17 +2,27 @@ module joka {
   yang-version "1";
 
   // namespace
-  namespace "joka.se";
+  namespace "http://joka.se";
   prefix "joka";
 
+	identity IAMBASE {
+		description "bas";
+	}
+
 	identity SUPER {
+		base IAMBASE;
 		description "suuuuuuuuuper!";
+	}
+
+	identity ULTRA {
+		base SUPER;
+		description "wow";
 	}
 
 	container hello {
 		leaf test {
 			type identityref {
-				base SUPER;
+				base IAMBASE;
 			}
 		}
 	}
