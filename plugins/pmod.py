@@ -115,8 +115,14 @@ class PModPlugin(plugin.PyangPlugin):
         for module in modules:
             for i,st in module.i_identities.items():
                 for b in st.search("base"):
+                    if b.arg not in self.identities:
+                        self.identities[b.arg] = []
                     self.identities[b.arg].append(i)
                 self.identities[i] = []
+        for i in self.identities:
+            for sub in self.identities[i].copy():
+                if sub in self.identities:
+                    self.identities[i] += self.identities[sub]
 
         for module in modules:
             self.process_children(module, tree, None)
