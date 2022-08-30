@@ -3,6 +3,9 @@
 This is still an idea to test the concept of "automatically" create arbitrary device configuration from an NSO NED YANG model.
 
 ## Priorities ##
+* Compile multiple YANG modules into one json tree.
+* Fix iteration so that passing schema information is transparent .
+  Less complex, without the need to add new parameters.
 * Fix the support for namespaces so that iteration and referencing leafs and
   typedefs works. Only very optimistic implementation today.
 
@@ -83,143 +86,7 @@ schema file that is to have a model that loads fast and is easy to traverse, wit
 the interesting information directly accessible. In this case the key leafs for
 lists and datatypes of leafs and their restrictions.
 
-pmpd.py is decending from standard jstree.py plugin.
-
-    {
-        "modules": {
-            ...
-        },
-        "tree": {
-            ...
-        },
-        "typedefs": {
-            ...
-        },
-        "annotations": {}
-    }
-
-## Element encoding ##
-
-
-**Container**
-
-    "trigger": [
-         "container",
-         {
-            # Members...
-         }
-    ]
-
-
-**List**
-
-    "ip": [
-        "list",
-        {
-            # Members...
-        },
-        [ # Key leafs (list of tuples with module and leaf name)
-            [ "tailf-ned-cisco-ios", "divert-code" ]
-        ]
-    ]
-
-**Leaf**
-
-    "rate": [
-        "leaf",
-        [
-            "uint16", # Datatype
-            []        # Type specific restrictions
-        ]
-    ],
-
-## Datatype encoding ##
-
-### numerical types ###
-
-**integers**
-
-    [
-        "uint16",
-        [
-            [ # Ranges
-                0,
-                7
-            ]
-            # May contain zero or more ranges
-        ]
-    ]
-
-**decimal64**
-
-    [
-        "decimal64",
-        [
-            1, # Fraction digits
-            [ # Ranges
-                0.0,
-                8.0
-            ]
-            # May contain zero or more ranges
-        ]
-    ]
-
-
-***Enumerations**
-
-    [
-        "enumeration",
-        [
-            "eq",
-            "ge",
-            "gt",
-            "le",
-            "lt",
-            "ne"
-        ]
-    ]
-
-
-**strings**
-
-    [
-        "string",
-        [
-            [ # Lengths
-                [
-                    5,
-                    10
-                ]
-                # May contain zero of more lengths
-            ],
-            [ # Patterns
-                "[0-9a-fA-F]{1,6}:[0-9a-fA-F]{1,8}"
-                # May contain zero of more lengths
-            ]
-        ]
-    ]
-
-**non-strict leafref**
-
-    [
-        "ns-leafref",
-        "../../../../../cable/downstream-pilot-tone/profile/id"
-    ]
-
-**leafref**
-
-    [
-        "leafref",
-        "../../key/name"
-    ]
-
-**Empty leafs**
-
-    [
-        "empty",
-        null
-    ]
-
+The json format specification is found [here](schema-format-specification.md)
 
 # Ideas #
 
