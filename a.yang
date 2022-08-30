@@ -1,0 +1,48 @@
+module a {
+  yang-version "1";
+
+  // namespace
+  namespace "urn:ned_config_creator:a";
+  prefix "prefix-a";
+
+	identity IAMBASE {
+		description "bas";
+	}
+
+	identity SUPER {
+		base IAMBASE;
+		description "suuuuuuuuuper!";
+	}
+
+	identity ULTRA {
+		base prefix-a:SUPER;
+		description "wow";
+	}
+
+  typedef special-string {
+    type string;
+  }
+
+  typedef type-a {
+    type int8 {
+      range "1..5";
+    }
+  }
+
+	container hello {
+		leaf test {
+			type identityref {
+				base prefix-a:IAMBASE;
+			}
+		}
+    leaf s {
+      type special-string;
+    }
+    leaf n {
+      type prefix-a:type-a;
+    }
+    container second {
+      leaf s { type string; }
+    }
+	}
+}

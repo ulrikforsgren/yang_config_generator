@@ -127,6 +127,7 @@ def load_schema(schema, node, children=None, parent=None):
     for k, v in schema.items():
         nn = None
         m = None
+        mk = k
         if ':' in k:
             m, k = k.split(':')
         # print(k)
@@ -154,7 +155,7 @@ def load_schema(schema, node, children=None, parent=None):
         else:
             raise Exception(f'Unhandled type {t}')
         if nn is not None:
-            children[k] = nn
+            children[mk] = nn
 
 
 def compile_keypath_generators(d):

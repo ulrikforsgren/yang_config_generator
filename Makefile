@@ -29,6 +29,10 @@ tailf-ned-cisco-ios.json: tailf-ned-cisco-ios.yang\
 	$(PYANGDIR)pyang -p $(NCS_DIR)/src/ncs/yang\
 	      --plugindir `pwd`/plugins -f pmod $< -o $@
 
+ab.json-raw: a.yang b.yang
+	$(PYANGDIR)pyang -p $(NCS_DIR)/src/ncs/yang\
+	      --plugindir `pwd`/plugins -f pmod $^ -o $@
+
 %.json: %.json-raw
 	cat $< | python3 -m json.tool - > $@
 	rm $<
