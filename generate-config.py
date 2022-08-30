@@ -447,10 +447,11 @@ def get_ns(m, schema):
 def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedefs=None, identities=None):
     path = path or tuple()
     for k, t in ch:
-        if args.verbose: print('Processing ' + '/'.join(path) + '/' + k)
         if ':' in k:
             m, k = k.split(':')
         tp = path + (k,)
+        # Fix namespace support for verbose when path supports namespaces
+        if args.verbose: print('Processing /' + '/'.join(tp))
         if isinstance(t, Container):
             e = ET.SubElement(doc, k)
             if t.module:
@@ -501,31 +502,28 @@ def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedef
             raise Exception(f"Unhandled type {type(t)}")
 
 
-def print_schema(args, ch, path=None, schema=None, json_schema=None, indent=0):
-    path = path or tuple()
+def print_schema(args, ch, path='', indent=0):
     for k, t in ch:
-        if args.verbose: print('Processing ' + '/'.join(path) + '/' + k)
-        if ':' in k:
-            m, k = k.split(':')
-        tp = path + (k,)
+        tp = path + f'/{k}'
+        if args.verbose: print(f'Processing {tp}')
         if isinstance(t, Container):
             print(f"{' ' * (indent * 4)}{k} (container)")
             if not args.one_level:
-                print_schema(args, t, path=tp, schema=schema, json_schema=json_schema,
+                print_schema(args, t, path=tp,
                              indent=indent + 1)
         elif isinstance(t, List):
             keys = ','.join(t.key_leafs)
             print(f"{' ' * (indent * 4)}{k} (list: {keys})")
             if not args.one_level:
-                print_schema(args, t, path=tp, schema=schema, json_schema=json_schema,
+                print_schema(args, t, path=tp,
                              indent=indent + 1)
         elif isinstance(t, Choice):
             # Only print container or list choices
             for k in t.choices.keys():
                 print(f"{' ' * (indent * 4)}{k} (choice")
                 m = t[k]
-                print_schema(args, m.items(), path=tp, schema=schema,
-                             json_schema=json_schema, indent=indent + 1)
+                print_schema(args, m.items(), path=tp,
+                             indent=indent + 1)
 
 
 def main(args):
@@ -547,7 +545,7 @@ def main(args):
         output_file = open(args.output, 'w') if args.output else sys.stdout
         output_file.write(prettify(config))
     else:
-        print_schema(args, s, schema=s, json_schema=schema)
+        print_schema(args, s)
 
 
 if __name__ == "__main__":
