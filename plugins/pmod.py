@@ -37,6 +37,7 @@ import json
 from pyang import plugin, error, types, statements
 from pyang.util import unique_prefixes
 import pprint as pp
+
 pprint = pp.PrettyPrinter(indent=4).pprint
 
 
@@ -46,35 +47,38 @@ pprint = pp.PrettyPrinter(indent=4).pprint
 # NOTE! This function does not take care of all combinations.
 #
 def replace_in_regexp(s, f, r):
-  while (i:=s.find(f)) != -1:
-    lb = s.rfind(r'[', 0, i)
-    rb = s.rfind(r']', 0, i)
-    if lb<=rb:
-      s = s.replace(f, f'[{r}]', 1)
-    else:
-      s = s.replace(f, r, 1)
-  return s
+    while (i := s.find(f)) != -1:
+        lb = s.rfind(r'[', 0, i)
+        rb = s.rfind(r']', 0, i)
+        if lb <= rb:
+            s = s.replace(f, f'[{r}]', 1)
+        else:
+            s = s.replace(f, r, 1)
+    return s
+
 
 def replace_patterns(p):
-  # Remove support for zone after ipv4/6 adresses
-  p = p.replace("(%[\p{N}\p{L}]+)?", "")
-  # Replace unicode patterns...
-  if r'\p{N}' in p:
-    p = replace_in_regexp(p, r'\p{N}', r'0-9')
-  if r'\p{L}' in p:
-    p = replace_in_regexp(p, r'\p{L}', r'a-zA-Z')
-  return p
+    # Remove support for zone after ipv4/6 adresses
+    p = p.replace("(%[\p{N}\p{L}]+)?", "")
+    # Replace unicode patterns...
+    if r'\p{N}' in p:
+        p = replace_in_regexp(p, r'\p{N}', r'0-9')
+    if r'\p{L}' in p:
+        p = replace_in_regexp(p, r'\p{L}', r'a-zA-Z')
+    return p
+
 
 def flatten_union(lst):
-  for i in lst:
-    if i is None:
-        continue
-    t,p = i
-    if t == 'union':
-      for t2, p2 in flatten_union(p):
-        yield t2, p2
-    else:
-      yield t,p
+    for i in lst:
+        if i is None:
+            continue
+        t, p = i
+        if t == 'union':
+            for t2, p2 in flatten_union(p):
+                yield t2, p2
+        else:
+            yield t, p
+
 
 def unique_types(lst):
     ulst = []
@@ -86,6 +90,7 @@ def unique_types(lst):
 
 def pyang_plugin_init():
     plugin.register_plugin(PModPlugin())
+
 
 class PModPlugin(plugin.PyangPlugin):
     def add_output_format(self, fmts):
@@ -106,16 +111,16 @@ class PModPlugin(plugin.PyangPlugin):
         annots = {}
         self.typedefs = {}
         self.identities = {}
-        for m,p in unique_prefixes(ctx).items():
+        for m, p in unique_prefixes(ctx).items():
             mods[m.i_modulename] = [p, m.search_one("namespace").arg]
         for module in modules:
             for ann in module.search(("ietf-yang-metadata", "annotation")):
                 typ = ann.search_one("type")
                 annots[module.arg + ":" + ann.arg] = (
                     "string" if typ is None else self.base_type(ann, typ))
-        #print("-"*80)
+        # print("-"*80)
         for module in modules:
-            for i,st in module.i_identities.items():
+            for i, st in module.i_identities.items():
                 for b in st.search("base"):
                     if b.arg not in self.identities:
                         self.identities[b.arg] = []
@@ -134,8 +139,8 @@ class PModPlugin(plugin.PyangPlugin):
             "typedefs": self.typedefs,
             "identities": self.identities,
             "annotations": annots
-            }, fd)
-        #pprint(tree)
+        }, fd)
+        # pprint(tree)
 
     def process_children(self, node, parent, pmod):
         """Process all children of `node`, except "rpc", "action" and "notification".
@@ -168,12 +173,12 @@ class PModPlugin(plugin.PyangPlugin):
                 dt = self.type_data(st)
                 if dt is None:
                     continue
-                nst = ch.search_one(('tailf-common','non-strict-leafref'))
+                nst = ch.search_one(('tailf-common', 'non-strict-leafref'))
                 if nst:
                     path = nst.search_one('path')
                     dt = ('ns-leafref', path.arg)
                 elif dt[0] == 'union':
-                    flat_union = [ m for m in flatten_union(dt[1]) ]
+                    flat_union = [m for m in flatten_union(dt[1])]
                     dt = ('union', unique_types(flat_union))
                 ndata.append(dt)
             elif ch.keyword in ["choice"]:
@@ -202,43 +207,42 @@ class PModPlugin(plugin.PyangPlugin):
         else:
             return of_type.arg
 
-
     def type_data(self, t):
-        #print("-"*80)
-        #print(1, t)
-        #print(1.1, type(t.i_typedef))
-        #print(6, type(t.i_type_spec))
-        #if isinstance(t.i_type_spec, types.LengthTypeSpec):
+        # print("-"*80)
+        # print(1, t)
+        # print(1.1, type(t.i_typedef))
+        # print(6, type(t.i_type_spec))
+        # if isinstance(t.i_type_spec, types.LengthTypeSpec):
         #  print(6.1, t.i_type_spec.lengths)
-        #elif isinstance(t.i_type_spec, types.PatternTypeSpec):
+        # elif isinstance(t.i_type_spec, types.PatternTypeSpec):
         #  print(6.2, t.i_type_spec.res)
         #  if isinstance(t.i_type_spec.base, LengthTypeSpec):
         #    print(6.3, t.i_type_spec.base.lengths)
         #  else:
         #    print(6.4, t.i_type_spec.base.lengths)
-        #print(7.1, type(t.i_typedefs))
-        #print(7.2, t.i_typedefs)
-        #print(8, t.i_is_validated)
-        #print(9, t.substmts)
-        if t.i_typedef: # Handle references to typedefs
+        # print(7.1, type(t.i_typedefs))
+        # print(7.2, t.i_typedefs)
+        # print(8, t.i_is_validated)
+        # print(9, t.substmts)
+        if t.i_typedef:  # Handle references to typedefs
             td = self.type_data(t.i_typedef.substmts[0])
-            #print(f"X {t}", end='')
-            #pprint(td)
+            # print(f"X {t}", end='')
+            # pprint(td)
             self.add_typedef(t, td)
             return ('typedef', t.arg)
-        ts = t.i_type_spec # Is it better to use the type name instead?
+        ts = t.i_type_spec  # Is it better to use the type name instead?
         n = ts.name
         if n in ['uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64']:
             if isinstance(ts, types.RangeTypeSpec):
-              ranges = ts.ranges
-              #print(t.substmts)
-              rst = t.search_one('range')
-              sst = rst.search_one(('tailf-common', 'step'))
-              if sst:
-                step = int(sst.arg)
-                ranges = [r+(step,) for r in ranges]
+                ranges = ts.ranges
+                # print(t.substmts)
+                rst = t.search_one('range')
+                sst = rst.search_one(('tailf-common', 'step'))
+                if sst:
+                    step = int(sst.arg)
+                    ranges = [r + (step,) for r in ranges]
             else:
-              ranges = []
+                ranges = []
             rt = (n, ranges)
         elif n == 'decimal64':
             # TODO: Return the array of ranges
@@ -253,7 +257,7 @@ class PModPlugin(plugin.PyangPlugin):
             bts = ts
             if isinstance(bts, types.PatternTypeSpec):
                 patterns = bts.res
-                patterns = [ replace_patterns(str(p)) for p in ts.res ]
+                patterns = [replace_patterns(str(p)) for p in ts.res]
                 bts = ts.base
             else:
                 patterns = []
@@ -263,7 +267,7 @@ class PModPlugin(plugin.PyangPlugin):
                 lengths = []
             rt = (ts.name, (lengths, patterns))
         elif n == 'enumeration':
-            rt = (n, [e for e,_ in ts.enums])
+            rt = (n, [e for e, _ in ts.enums])
         elif n == 'union':
             # Resolves nested unions and returns
             # and returns a flattened union 
