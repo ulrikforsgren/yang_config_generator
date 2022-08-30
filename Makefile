@@ -1,6 +1,22 @@
-# Newest version of Pyang is required
+# Pyang version 2.5.x or newer is required
 export PYANGDIR=../pyang/bin/
-export PYTHONPATH =../pyang
+export PYTHONPATH=../pyang
+
+ifeq ($(shell test -x $(PYANGDIR)pyang; echo $$?),1)
+  $(error pyang not found. Get pyang 2.5.x or newer and update PYANGDIR in Makefile)
+endif
+
+PYANG_VERSION=$(shell PYTHONPATH=$(PYTHONPATH) $(PYANGDIR)pyang -v | cut -f2 -d' ')
+PYANG_VER_MAJ=$(shell echo $(PYANG_VERSION) | cut -f1 -d.)
+PYANG_VER_MIN=$(shell echo $(PYANG_VERSION) | cut -f2 -d.)
+
+# Test required pyang version
+ifeq ($(shell test $(PYANG_VER_MAJ) -lt 2; echo $$?),0)
+  $(error pyang version 2.5.x or newer is required)
+endif
+ifeq ($(shell test $(PYANG_VER_MIN) -lt 5; echo $$?),0)
+  $(error pyang version 2.5.x or newer is required)
+endif
 
 all:
 	$(MAKE) tailf-ned-cisco-ios.json
