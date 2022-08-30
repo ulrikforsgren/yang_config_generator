@@ -42,12 +42,13 @@ def parseArgs(args):
                                           help='Output file name')
     parser.add_argument("--hierarchy", required=False, action='store_true', default=False)
     parser.add_argument("--one-level", required=False, action='store_true', default=False)
+    parser.add_argument("-v", dest='verbose', required=False,
+                              action='store_true', default=False)
 #    parser.add_argument('cmd', choices=['clean', 'create', 'read',
 #                                        'update', 'delete', 'crud'])
 #    parser.add_argument("-n", required=False, type=int)
 #    parser.add_argument("-p", required=False, type=int)
 #    parser.add_argument("-s", required=False, type=str)
-#    parser.add_argument("-v", required=False, action='store_true', default=False)
 #    parser.add_argument("--json", required=False, type=str)
     return parser.parse_args(args)
 
@@ -397,9 +398,10 @@ def build_kp(node):
 def get_ns(m, schema):
     return schema['modules'][m][1]
 
-def iter_schema(ch, doc, path=None, schema=None, json_schema=None, typedefs=None):
+def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedefs=None):
   path = path or tuple()
   for k,t in ch:
+    if args.verbose: print('Processing '+'/'.join(path)+'/'+k)
     if ':' in k:
         m,k = k.split(':')
     tp = path + (k,)
@@ -408,7 +410,7 @@ def iter_schema(ch, doc, path=None, schema=None, json_schema=None, typedefs=None
       if t.module:
         ns = get_ns(t.module, json_schema)
         e.set('xmlns', ns)
-      iter_schema(t, e, path=tp, schema=schema, json_schema=json_schema,
+      iter_schema(args, t, e, path=tp, schema=schema, json_schema=json_schema,
                   typedefs=typedefs)
     elif isinstance(t, List):
       # Create a random number of list elements between 0 and 5
@@ -431,11 +433,11 @@ def iter_schema(ch, doc, path=None, schema=None, json_schema=None, typedefs=None
               for ln in t.key_leafs:
                   kl = t.children[ln]
                   ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, kl, typedefs)
-            iter_schema(t, e, path=tp, schema=schema, json_schema=json_schema,
+            iter_schema(args, t, e, path=tp, schema=schema, json_schema=json_schema,
                         typedefs=typedefs)
     elif isinstance(t, Choice):
       m = t[random.choice(list(t.choices.keys()))]
-      iter_schema(m.items(), doc, path=tp, schema=schema,
+      iter_schema(args, m.items(), doc, path=tp, schema=schema,
                   json_schema=json_schema, typedefs=typedefs)
     elif isinstance(t, Leaf):
       e = ET.SubElement(doc, k)
@@ -454,6 +456,7 @@ def iter_schema(ch, doc, path=None, schema=None, json_schema=None, typedefs=None
 def print_schema(args, ch, path=None, schema=None, json_schema=None, indent=0):
   path = path or tuple()
   for k,t in ch:
+      if args.verbose: print('Processing '+'/'.join(path)+'/'+k)
       if ':' in k:
           m,k = k.split(':')
       tp = path + (k,)
@@ -491,7 +494,7 @@ def main(args):
 
     s = Schema(tree)
     if not args.hierarchy:
-        iter_schema(s, dev_config, schema=s, json_schema=schema, typedefs=typedefs)
+        iter_schema(args, s, dev_config, schema=s, json_schema=schema, typedefs=typedefs)
 
         output_file = open(args.output, 'w') if args.output else sys.stdout
         output_file.write(prettify(config))
