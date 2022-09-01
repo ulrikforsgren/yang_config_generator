@@ -128,9 +128,10 @@ class LeafList(Leaf):
 
 class Schema:
     def __init__(self, schema=None):
+        self.json = schema
         self.children = {}
         if schema is not None:
-            load_schema(schema, self)
+            load_schema(schema['tree'], self)
 
     def __iter__(self):
         for k, v in self.children.items():
@@ -309,7 +310,9 @@ ilimits = {
 }
 
 
-def generate_random_data(datatype, schema, node, typedefs, identities):
+def generate_random_data(datatype, schema, node):
+    identities = schema.json['identities']
+    typedefs = schema.json['typedefs']
     dt, r = datatype
     v = None
     if dt == 'union':
@@ -401,7 +404,7 @@ def generate_random_data(datatype, schema, node, typedefs, identities):
         if g:
             return g(datatype)
         else:
-            return generate_random_data(typedefs[r], schema, node, typedefs, identities)  # Expand typedef
+            return generate_random_data(typedefs[r], schema, node)  # Expand typedef
     elif dt in ['ns-leafref', 'leafref']:
         # TODO: leafref must point to an existing leaf
         path = r.split('/')
@@ -460,8 +463,14 @@ def get_ns(m, schema):
     return schema['modules'][m][1]
 
 
-def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedefs=None, identities=None):
+# Move json, typedefs and identities into Schema class.
+# Make ch and named parameter with default None.
+# Assign ch to schema is ch is None.
+# Try to make a function that returns the path of the current element.
+
+def iter_schema(args, schema, doc, path=None, ch=None):
     path = path or tuple()
+    ch = ch or schema
     for k, t in ch:
         if ':' in k:
             m, k = k.split(':')
@@ -471,10 +480,9 @@ def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedef
         if isinstance(t, Container):
             e = ET.SubElement(doc, k)
             if t.module:
-                ns = get_ns(t.module, json_schema)
+                ns = get_ns(t.module, schema.json)
                 e.set('xmlns', ns)
-            iter_schema(args, t, e, path=tp, schema=schema, json_schema=json_schema,
-                        typedefs=typedefs, identities=identities)
+            iter_schema(args, schema, e, path=tp, ch=t)
         elif isinstance(t, List):
             # Create a random number of list elements between 0 and 5
             n = 1  # random.randint(0, 2)
@@ -482,7 +490,7 @@ def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedef
                 for _ in range(0, n):
                     e = ET.SubElement(doc, k)
                     if t.module:
-                        ns = get_ns(t.module, json_schema)
+                        ns = get_ns(t.module, schema.json)
                         e.set('xmlns', ns)
                     # TODO: Handle uniqueness of key
                     g = keypath_generators.get(tp)
@@ -497,22 +505,20 @@ def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedef
                             kl = t.children[ln]
                             ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, kl, typedefs,
                                                                              identities)
-                    iter_schema(args, t, e, path=tp, schema=schema, json_schema=json_schema,
-                                typedefs=typedefs, identities=identities)
+                    iter_schema(args, schema, e, path=tp, ch=t)
         elif isinstance(t, Choice):
             m = t[random.choice(list(t.choices.keys()))]
-            iter_schema(args, m.items(), doc, path=tp, schema=schema,
-                        json_schema=json_schema, typedefs=typedefs, identities=identities)
+            iter_schema(args, schema, doc, path=tp, ch=m.items())
         elif isinstance(t, Leaf):
             e = ET.SubElement(doc, k)
             g = keypath_generators.get(tp)
             if g:
                 v = g(t.datatype)
             else:
-                v = generate_random_data(t.datatype, schema, t, typedefs, identities)
+                v = generate_random_data(t.datatype, schema, t)
             e.text = v
             if t.module:
-                ns = get_ns(t.module, json_schema)
+                ns = get_ns(t.module, schema.json)
                 e.set('xmlns', ns)
         else:
             raise Exception(f"Unhandled type {type(t)}")
@@ -540,10 +546,8 @@ def print_schema(args, ch, indent=0):
 
 
 def main(args):
-    schema = json.loads(open(args.module).read())
-    tree = schema['tree']
-    typedefs = schema['typedefs']
-    identities = schema['identities']
+    json_schema = json.loads(open(args.module).read())
+    schema = Schema(json_schema)
 
     config = ET.Element("config", xmlns="http://tail-f.com/ns/config/1.0")
     devices = ET.SubElement(config, "devices", xmlns="http://tail-f.com/ns/ncs")
@@ -551,14 +555,13 @@ def main(args):
     ET.SubElement(device, "name").text = "ce0"
     dev_config = ET.SubElement(device, "config")
 
-    s = Schema(tree)
     if not args.hierarchy:
-        iter_schema(args, s, dev_config, schema=s, json_schema=schema, typedefs=typedefs, identities=identities)
+        iter_schema(args, schema, dev_config)
 
         output_file = open(args.output, 'w') if args.output else sys.stdout
         output_file.write(prettify(config))
     else:
-        print_schema(args, s)
+        print_schema(args, schema)
 
 
 if __name__ == "__main__":
