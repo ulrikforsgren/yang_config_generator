@@ -60,6 +60,22 @@ class Node:
         self.name = name
         self.module = module
 
+    def getpath(self):
+        path = [(self.module, self.name)]
+        if not isinstance(self.parent, Schema):
+            path = self.parent.getpath() + path
+        return path
+
+
+def path2str(path):
+    s = ""
+    for m, n in path:
+        if m is not None:
+            s += f'/{m}:{n}'
+        else:
+            s += f'/{n}'
+    return s
+
 
 class Container(Node):
     def __init__(self, parent, name, module=None):
@@ -451,7 +467,7 @@ def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedef
             m, k = k.split(':')
         tp = path + (k,)
         # Fix namespace support for verbose when path supports namespaces
-        if args.verbose: print('Processing /' + '/'.join(tp))
+        if args.verbose: print(f'Processing {path2str(t.getpath())}')
         if isinstance(t, Container):
             e = ET.SubElement(doc, k)
             if t.module:
@@ -502,28 +518,25 @@ def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedef
             raise Exception(f"Unhandled type {type(t)}")
 
 
-def print_schema(args, ch, path='', indent=0):
+def print_schema(args, ch, indent=0):
     for k, t in ch:
-        tp = path + f'/{k}'
-        if args.verbose: print(f'Processing {tp}')
+        if args.verbose:
+            print(f'Processing {path2str(t.getpath())}')
         if isinstance(t, Container):
             print(f"{' ' * (indent * 4)}{k} (container)")
             if not args.one_level:
-                print_schema(args, t, path=tp,
-                             indent=indent + 1)
+                print_schema(args, t, indent=indent + 1)
         elif isinstance(t, List):
             keys = ','.join(t.key_leafs)
             print(f"{' ' * (indent * 4)}{k} (list: {keys})")
             if not args.one_level:
-                print_schema(args, t, path=tp,
-                             indent=indent + 1)
+                print_schema(args, t, indent=indent + 1)
         elif isinstance(t, Choice):
             # Only print container or list choices
             for k in t.choices.keys():
                 print(f"{' ' * (indent * 4)}{k} (choice")
                 m = t[k]
-                print_schema(args, m.items(), path=tp,
-                             indent=indent + 1)
+                print_schema(args, m.items(), indent=indent + 1)
 
 
 def main(args):
