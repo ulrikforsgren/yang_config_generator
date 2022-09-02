@@ -41,16 +41,12 @@ def parseArgs(args):
                         help='Compiled YANG module (json)')
     parser.add_argument('-o', '--output', type=str, required=False,
                         help='Output file name')
-    parser.add_argument("--hierarchy", required=False, action='store_true', default=False)
-    parser.add_argument("--one-level", required=False, action='store_true', default=False)
-    parser.add_argument("-v", dest='verbose', required=False,
+    parser.add_argument('--hierarchy', required=False, action='store_true', default=False)
+    parser.add_argument('--one-level', required=False, action='store_true', default=False)
+    parser.add_argument('-v', dest='verbose', required=False,
                         action='store_true', default=False)
-    #    parser.add_argument('cmd', choices=['clean', 'create', 'read',
-    #                                        'update', 'delete', 'crud'])
-    #    parser.add_argument("-n", required=False, type=int)
-    #    parser.add_argument("-p", required=False, type=int)
-    #    parser.add_argument("-s", required=False, type=str)
-    #    parser.add_argument("--json", required=False, type=str)
+    parser.add_argument('-f', '--format', choices=['default', 'tailf-config', 'nso-device'], default='default')
+    parser.add_argument('-n', '--name', required=False, type=str, default='ce0')
     return parser.parse_args(args)
 
 
@@ -545,21 +541,60 @@ def print_schema(args, ch, indent=0):
                 print_schema(args, m.items(), indent=indent + 1)
 
 
+def output_default():
+    return '''<?xml version="1.0" ?>
+        <xml-root/>''', 'root', None
+def output_nso_device(name):
+    return f'''<?xml version="1.0" ?>
+<config xmlns="http://tail-f.com/ns/config/1.0">
+<devices xmlns="http://tail-f.com/ns/ncs">
+<device>
+<name>{name}</name>
+<xml-root/>
+</device>
+</devices>
+</config>''', 'config', 'http://tail-f.com/ns/ncs'
+
+
+def output_config():
+    return '''<?xml version="1.0" ?>
+<xml-root/>''', 'config', "http://tail-f.com/ns/config/1.0"
+
+
+def prepare_output(args):
+    if args.format == 'default':
+        fmt, rn, ns = output_default()
+    elif args.format == 'nso-device':
+        fmt, rn, ns = output_nso_device(args.name)
+    elif args.format == 'tailf-config':
+        fmt, rn, ns = output_config()
+
+    doc = ET.fromstring(fmt)
+    if doc.tag == 'xml-root':
+        xmlroot = doc
+    else:
+        fns = f'{{{ns}}}' if ns else ''
+        xmlroot = doc.find(f'.//{fns}xml-root')
+    if rn is not None:
+        xmlroot.tag = rn
+    if ns is not None:
+        xmlroot.attrib['xmlns'] = ns
+    #data.replace(xml)
+
+    return doc, xmlroot
+
+
+
 def main(args):
     json_schema = json.loads(open(args.module).read())
     schema = Schema(json_schema)
 
-    config = ET.Element("config", xmlns="http://tail-f.com/ns/config/1.0")
-    devices = ET.SubElement(config, "devices", xmlns="http://tail-f.com/ns/ncs")
-    device = ET.SubElement(devices, "device")
-    ET.SubElement(device, "name").text = "ce0"
-    dev_config = ET.SubElement(device, "config")
-
     if not args.hierarchy:
-        iter_schema(args, schema, dev_config)
+        doc, xmlroot = prepare_output(args)
+        iter_schema(args, schema, xmlroot)
 
         output_file = open(args.output, 'w') if args.output else sys.stdout
-        output_file.write(prettify(config))
+        output_file.write(prettify(doc))
     else:
         print_schema(args, schema)
 
