@@ -2,14 +2,11 @@
 
 import argparse
 import json
-import pprint as pp
 import random
 import sys
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
-
-pprint = pp.PrettyPrinter(indent=4).pprint
 
 import rstr
 
@@ -27,13 +24,13 @@ def prettify(elem):
 #    Get a value if exists/create if not?
 #    Create anyway if non-strict ...
 #  - Handle uniqueness of list keys
-#  - Refactor schema classes to make it easy to use and iterate the model.
 #  - Refactor generate_random_data to take only node as input.
 #  - Should there be a default generator for each native type?
 #    To gets rid of the if mess...
 #    Easier to override types?!
 #  - Regexp like matching to create generator for arbitrary part of the model?
 #  - Handle min-elements/max-elements.
+
 
 def parseArgs(args):
     parser = argparse.ArgumentParser()
@@ -544,6 +541,8 @@ def print_schema(args, ch, indent=0):
 def output_default():
     return '''<?xml version="1.0" ?>
         <xml-root/>''', 'root', None
+
+
 def output_nso_device(name):
     return f'''<?xml version="1.0" ?>
 <config xmlns="http://tail-f.com/ns/config/1.0">
@@ -579,10 +578,8 @@ def prepare_output(args):
         xmlroot.tag = rn
     if ns is not None:
         xmlroot.attrib['xmlns'] = ns
-    #data.replace(xml)
 
     return doc, xmlroot
-
 
 
 def main(args):
