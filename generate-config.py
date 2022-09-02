@@ -53,15 +53,19 @@ class Node:
         self.name = name
         self.module = module
 
-    def getpath(self):
-        path = [(self.module, self.name)]
-        if not isinstance(self.parent, Schema):
-            path = self.parent.getpath() + path
-        return path
+    def get_kp(self):
+        kp = []
+        node = self
+        while isinstance(node, Node):
+            kp = [(node.module, node.name)] + kp
+            node = node.parent
+        return tuple(kp)
 
 
-def path2str(path):
+def kp2str(path):
     s = ""
+    if len(path) == 0:
+        return '/'
     for m, n in path:
         if m is not None:
             s += f'/{m}:{n}'
@@ -125,6 +129,15 @@ class Schema:
         self.children = {}
         if schema is not None:
             load_schema(schema['tree'], self)
+
+    def get_kp(self):
+        return []
+
+    def prefix2module(self, prefix):
+        for m_name, (m_prefix, m_ns) in self.json['modules'].items():
+            if prefix == m_prefix:
+                return m_name
+        return None
 
     def __iter__(self):
         for k, v in self.children.items():
@@ -303,7 +316,7 @@ ilimits = {
 }
 
 
-def generate_random_data(datatype, schema, node):
+def generate_random_data(datatype, schema, module, node):
     identities = schema.json['identities']
     typedefs = schema.json['typedefs']
     dt, r = datatype
@@ -397,36 +410,48 @@ def generate_random_data(datatype, schema, node):
         if g:
             return g(datatype)
         else:
-            return generate_random_data(typedefs[r], schema, node)  # Expand typedef
+            return generate_random_data(typedefs[r], schema, module, node)  # Expand typedef
     elif dt in ['ns-leafref', 'leafref']:
         # TODO: leafref must point to an existing leaf
         path = r.split('/')
         # TODO: handle paths with paths inside [ ]
         # ex: "/oc-if:interfaces/oc-if:interface[oc-if:name=current()/../interface]/oc-if:subinterfaces/oc-if:subinterface/oc-if:index"
+        # TODO: Create function that tracks the datatype that the leafref points to.
+        #       Needs to keep track of the current module when traversing back in the hierarchy
         if path[0] == '..':
             n = node
         else:
             n = schema
             path = path[1:]
+        left_module_ns = False
         for m in path:
-            if ':' in m: m = m.split(':', 1)[1]
             if m == '..':
+                if n.module is not None: left_module_ns = True  # How to handle multiple exits and up/downs?
+                                                                # Should probably not happen.
                 n = n.parent
             else:
+                if ':' in m:
+                    prefix, m = m.split(':')
+                    m = f'{schema.prefix2module(prefix)}:{m}'
+                else:
+                    if left_module_ns:
+                        # How to handle when leaving multiple namespaces?
+                        m = f'{module}:{m}'
+                        left_module_ns = False
                 try:
                     n = n.children[m]
                 except KeyError as e:
                     print(f"ERROR: Failed to find leafref {r}", file=sys.stderr)
-                    print(build_kp(node), file=sys.stderr)
-                    print(build_kp(n), file=sys.stderr)
+                    print(node.get_kp(), module, file=sys.stderr)
+                    print(n.get_kp(), file=sys.stderr)
                     raise e
-        kp = build_kp(n)
+        kp = n.get_kp()
         # TODO: Handle generator for a specific leaf
         if isinstance(n.parent, List) and n.name in n.parent.key_leafs:
             g = keypath_generators.get(kp[:-1])
             if g:
                 return g(n.datatype)
-        return generate_random_data(n.datatype, schema, n, typedefs, identities)
+        return generate_random_data(n.datatype, schema, module, n)
     elif dt == 'identityref':
         if r in identities:
             return pick_identity(identities, r)
@@ -444,38 +469,34 @@ def pick_identity(identities, r):
     return r if len(identities[r]) == 0 else random.choice(identities[r])
 
 
-def build_kp(node):
-    kp = []
-    while isinstance(node, Node):
-        kp = [node.name] + kp
-        node = node.parent
-    return tuple(kp)
-
-
 def get_ns(m, schema):
     return schema['modules'][m][1]
 
 
-# Move json, typedefs and identities into Schema class.
-# Make ch and named parameter with default None.
-# Assign ch to schema is ch is None.
-# Try to make a function that returns the path of the current element.
+class IterContext:
+    def __init__(self):
+        self.path = tuple()
+        self.module = None
 
-def iter_schema(args, schema, doc, path=None, ch=None):
-    path = path or tuple()
+
+def iter_schema(args, schema, doc, ctx=None, ch=None):
+    # TODO: Keep track of current module
+    #       Move path into context object and pass that to iter_schema
+    ctx = ctx or IterContext()
     ch = ch or schema
     for k, t in ch:
         if ':' in k:
             m, k = k.split(':')
-        tp = path + (k,)
+        tp = ctx.path + (k,)
         # Fix namespace support for verbose when path supports namespaces
-        if args.verbose: print(f'Processing {path2str(t.getpath())}')
+        if args.verbose: print(f'Processing {kp2str(t.get_kp())}')
         if isinstance(t, Container):
             e = ET.SubElement(doc, k)
             if t.module:
+                ctx.module = t.module
                 ns = get_ns(t.module, schema.json)
                 e.set('xmlns', ns)
-            iter_schema(args, schema, e, path=tp, ch=t)
+            iter_schema(args, schema, e, ctx, t)
         elif isinstance(t, List):
             # Create a random number of list elements between 0 and 5
             n = 1  # random.randint(0, 2)
@@ -483,6 +504,7 @@ def iter_schema(args, schema, doc, path=None, ch=None):
                 for _ in range(0, n):
                     e = ET.SubElement(doc, k)
                     if t.module:
+                        ctx.module = t.module
                         ns = get_ns(t.module, schema.json)
                         e.set('xmlns', ns)
                     # TODO: Handle uniqueness of key
@@ -496,19 +518,18 @@ def iter_schema(args, schema, doc, path=None, ch=None):
                     else:
                         for ln in t.key_leafs:
                             kl = t.children[ln]
-                            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, kl, typedefs,
-                                                                             identities)
-                    iter_schema(args, schema, e, path=tp, ch=t)
+                            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, ctx.module, kl)
+                    iter_schema(args, schema, e, ctx, t)
         elif isinstance(t, Choice):
             m = t[random.choice(list(t.choices.keys()))]
-            iter_schema(args, schema, doc, path=tp, ch=m.items())
+            iter_schema(args, schema, doc, ctx, m.items())
         elif isinstance(t, Leaf):
             e = ET.SubElement(doc, k)
             g = keypath_generators.get(tp)
             if g:
                 v = g(t.datatype)
             else:
-                v = generate_random_data(t.datatype, schema, t)
+                v = generate_random_data(t.datatype, schema, ctx.module, t)
             e.text = v
             if t.module:
                 ns = get_ns(t.module, schema.json)
@@ -520,7 +541,7 @@ def iter_schema(args, schema, doc, path=None, ch=None):
 def print_schema(args, ch, indent=0):
     for k, t in ch:
         if args.verbose:
-            print(f'Processing {path2str(t.getpath())}')
+            print(f'Processing {kp2str(t.get_kp())}')
         if isinstance(t, Container):
             print(f"{' ' * (indent * 4)}{k} (container)")
             if not args.one_level:
