@@ -3,12 +3,7 @@
 This is still an idea to test the concept of "automatically" create arbitrary device configuration from an NSO NED YANG model.
 
 ## Priorities ##
-* Compile multiple YANG modules into one json tree.
-* Fix iteration so that passing schema information is transparent .
-  Less complex, without the need to add new parameters.
-* Fix the support for namespaces so that iteration and referencing leafs and
-  typedefs works. Only very optimistic implementation today.
-
+* Create initial test framework secure an expected output.
 
 ## TODO ##
 * Possibility to generate config for selected parts of a YANG model.
@@ -16,6 +11,7 @@ This is still an idea to test the concept of "automatically" create arbitrary de
    if it is possible to do in a generalized way.
 * Support for min/max-elements.
 * Run tests to identify issues in various parts of the model.
+* Include when and must statements in json schema format.
 * ???
 
 
