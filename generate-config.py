@@ -48,6 +48,47 @@ def parseArgs(args):
     return parser.parse_args(args)
 
 
+def kp2str(kp):
+    path = ""
+    if len(kp) == 0:
+        return '/'
+    for m, n in kp:
+        if m is not None:
+            path += f'/{m}:{n}'
+        else:
+            path += f'/{n}'
+    return path
+
+
+def str2kp(path):
+    # path must always start with /
+    parts = path.split('/')
+    assert(parts[0] == '')
+    kp = []
+    for part in parts[1:]:
+        p = part.split(':')
+        if len(p) == 1:
+            kp.append((None, p[0]))
+        else:
+            kp.append((p[0], p[1]))
+    return kp
+
+
+# TODO: Handle namespaces/prefixes in a generic way. I.e. inherit the level above is not specified.
+# TODO: Handle choices (currently broken)
+def find_path(schema, path, kp=None):
+    # path is assumed to be well formatted, starting with a single /
+    kp = kp or str2kp(path)
+    (module, name) = kp[0]
+    for ch in schema.children.values():
+        if name == ch.name:
+            if module is False or module == ch.module:
+                if len(kp) == 1:
+                    return ch
+                return find_path(ch, path, kp[1:])
+    return None
+
+
 class Node:
     def __init__(self, parent, name, module=None):
         self.parent = parent
@@ -61,18 +102,6 @@ class Node:
             kp = [(node.module, node.name)] + kp
             node = node.parent
         return tuple(kp)
-
-
-def kp2str(path):
-    s = ""
-    if len(path) == 0:
-        return '/'
-    for m, n in path:
-        if m is not None:
-            s += f'/{m}:{n}'
-        else:
-            s += f'/{n}'
-    return s
 
 
 class Container(Node):
