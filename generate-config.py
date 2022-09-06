@@ -89,6 +89,14 @@ def find_path(schema, path, kp=None):
     return None
 
 
+def find_kp(ch, kp):
+    for p in kp:
+        ch = ch.find(p)
+        if ch is None:
+            return None
+    return ch
+
+
 class Node:
     def __init__(self, parent, name, module=None):
         self.parent = parent
@@ -104,14 +112,27 @@ class Node:
         return tuple(kp)
 
 
-class Container(Node):
-    def __init__(self, parent, name, module=None):
-        super().__init__(parent, name, module)
-        self.children = {}
-
+class HasChildren:
     def __iter__(self):
         for k, v in self.children.items():
             yield k, v
+
+    def find(self, p):
+        module, name = p
+        for ch in self.children.values():
+            if isinstance(ch, Choice):
+                ch = ch.find(p)
+                if ch is not None:
+                    return ch
+            elif name == ch.name and (module is None or module == ch.module):
+                return ch
+        return None
+
+
+class Container(Node, HasChildren):
+    def __init__(self, parent, name, module=None):
+        super().__init__(parent, name, module)
+        self.children = {}
 
 
 class Choice(Node):
@@ -129,17 +150,24 @@ class Choice(Node):
     def __getitem__(self, n):
         return self.choices[n]
 
+    def find(self, p):
+        module, name = p
+        for case in self.choices.values():
+            for _, ch in case.items():
+                if isinstance(ch, Choice):
+                    c = ch.find(p)
+                    if ch is not None:
+                        return ch
+                elif name == ch.name and (module is None or module == ch.module):
+                    return ch
+        return None
 
-class List(Node):
+class List(Node, HasChildren):
     def __init__(self, parent, name, key_leafs, module=None):
         super().__init__(parent, name, module)
         self.key_leafs = [l[1] for l in key_leafs]
         self.children = {}  # All children
         self.nk_children = {}  # Non key children
-
-    def __iter__(self):
-        for k, v in self.nk_children.items():
-            yield k, v
 
 
 class Leaf(Node):
@@ -153,10 +181,12 @@ class LeafList(Leaf):
     pass
 
 
-class Schema:
+class Schema(HasChildren):
     def __init__(self, schema=None):
         self.json = schema
         self.children = {}
+        self.name = ''
+        self.module = ''
         if schema is not None:
             load_schema(schema['tree'], self)
 
@@ -168,10 +198,6 @@ class Schema:
             if prefix == m_prefix:
                 return m_name
         return None
-
-    def __iter__(self):
-        for k, v in self.children.items():
-            yield k, v
 
 
 def load_schema(schema, node, children=None, parent=None):
