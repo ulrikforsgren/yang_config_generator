@@ -45,6 +45,8 @@ def parseArgs(args):
                         action='store_true', default=False)
     parser.add_argument('-f', '--format', choices=['default', 'tailf-config', 'nso-device'], default='default')
     parser.add_argument('-n', '--name', required=False, type=str, default='ce0')
+    parser.add_argument('-p', '--path', type=str, required=False,
+                        help='Start iterating at path')
     return parser.parse_args(args)
 
 
@@ -594,7 +596,37 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             raise Exception(f"Unhandled type {type(t)}")
 
 
-def print_schema(args, ch, indent=0):
+def print_levels(schema, kp):
+    indent = 0
+    ch = schema
+    for p in kp:
+        ch = ch.find(p)
+        if isinstance(ch, Container):
+            print(f"{' ' * (indent * 4)}{ch.name} (container)")
+        elif isinstance(ch, List):
+            keys = ','.join(ch.key_leafs)
+            print(f"{' ' * (indent * 4)}{ch.name} (list: {keys})")
+        elif isinstance(ch, Choice):
+            # Only print container or list choices
+            print(f"{' ' * (indent * 4)}{ch.name} (choice)")
+            for k in ch.choices.keys():
+                m = t[k]
+                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
+        indent += 1
+
+
+def print_schema(args, schema, indent=0):
+    if indent == 0 and args.path:
+        kp = str2kp(args.path)
+        ch = find_kp(schema, kp)
+        if ch is None:
+            print(f"Path {args.path} not found")
+            sys.exit(1)
+        else:
+            print_levels(schema, kp)
+            indent = len(kp)
+    else:
+        ch = schema
     for k, t in ch:
         if args.verbose:
             print(f'Processing {kp2str(t.get_kp())}')
