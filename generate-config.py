@@ -554,10 +554,11 @@ def print_schema(args, ch, indent=0):
                 print_schema(args, t, indent=indent + 1)
         elif isinstance(t, Choice):
             # Only print container or list choices
+            print(f"{' ' * (indent * 4)}{k} (choice)")
             for k in t.choices.keys():
-                print(f"{' ' * (indent * 4)}{k} (choice")
                 m = t[k]
-                print_schema(args, m.items(), indent=indent + 1)
+                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
+                print_schema(args, m.items(), indent=indent + 2)
         elif isinstance(t, Leaf):
             if args.leaves:
                 print(f"{' ' * ((indent) * 4)}{k} (leaf) ({t.datatype[0]})")
