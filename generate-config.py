@@ -537,6 +537,27 @@ class IterContext:
         self.module = None
 
 
+def create_list_entry(schema, doc, ch, tp, ctx):
+    e = ET.SubElement(doc, ch.name)
+    if ch.module:
+        ctx.module = ch.module
+        ns = get_ns(ch.module, schema.json)
+        e.set('xmlns', ns)
+    # TODO: Handle uniqueness of key
+    g = keypath_generators.get(tp)
+    if g:
+        if not hasattr(g, '__iter__'):
+            g = [g]
+        for ln, klg in zip(ch.key_leafs, g):
+            kl = ch.children[ln]
+            ET.SubElement(e, ln).text = klg(kl.datatype)
+    else:
+        for ln in ch.key_leafs:
+            kl = ch.children[ln]
+            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, ctx.module, kl)
+    return e
+
+
 def add_levels(schema, doc, kp, ctx):
     indent = 0
     ch = schema
@@ -556,23 +577,7 @@ def add_levels(schema, doc, kp, ctx):
             n = 1  # random.randint(0, 2)
             if n > 0:
                 for _ in range(0, n):
-                    e = ET.SubElement(doc, ch.name)
-                    if ch.module:
-                        ctx.module = ch.module
-                        ns = get_ns(ch.module, schema.json)
-                        e.set('xmlns', ns)
-                    # TODO: Handle uniqueness of key
-                    g = keypath_generators.get(tp)
-                    if g:
-                        if not hasattr(g, '__iter__'):
-                            g = [g]
-                        for ln, klg in zip(t.key_leafs, g):
-                            kl = ch.children[ln]
-                            ET.SubElement(e, ln).text = klg(kl.datatype)
-                    else:
-                        for ln in ch.key_leafs:
-                            kl = ch.children[ln]
-                            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, ctx.module, kl)
+                    e = create_list_entry(schema, doc, ch, tp, ctx)
             doc = e
         else:
             print("ERROR: Type not supported with --path")
@@ -610,23 +615,7 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             n = 1  # random.randint(0, 2)
             if n > 0:
                 for _ in range(0, n):
-                    e = ET.SubElement(doc, k)
-                    if t.module:
-                        ctx.module = t.module
-                        ns = get_ns(t.module, schema.json)
-                        e.set('xmlns', ns)
-                    # TODO: Handle uniqueness of key
-                    g = keypath_generators.get(tp)
-                    if g:
-                        if not hasattr(g, '__iter__'):
-                            g = [g]
-                        for ln, klg in zip(t.key_leafs, g):
-                            kl = t.children[ln]
-                            ET.SubElement(e, ln).text = klg(kl.datatype)
-                    else:
-                        for ln in t.key_leafs:
-                            kl = t.children[ln]
-                            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, ctx.module, kl)
+                    e = create_list_entry(schema, doc, t, tp, ctx)
                     iter_schema(args, schema, e, ctx, t)
         elif isinstance(t, Choice):
             m = t[random.choice(list(t.choices.keys()))]
