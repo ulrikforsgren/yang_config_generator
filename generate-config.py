@@ -39,6 +39,7 @@ def parseArgs(args):
     parser.add_argument('-o', '--output', type=str, required=False,
                         help='Output file name')
     parser.add_argument('--hierarchy', required=False, action='store_true', default=False)
+    parser.add_argument('--leaves', required=False, action='store_true', default=False)
     parser.add_argument('--one-level', required=False, action='store_true', default=False)
     parser.add_argument('-v', dest='verbose', required=False,
                         action='store_true', default=False)
@@ -557,6 +558,9 @@ def print_schema(args, ch, indent=0):
                 print(f"{' ' * (indent * 4)}{k} (choice")
                 m = t[k]
                 print_schema(args, m.items(), indent=indent + 1)
+        elif isinstance(t, Leaf):
+            if args.leaves:
+                print(f"{' ' * ((indent) * 4)}{k} (leaf) ({t.datatype[0]})")
 
 
 def output_default():
