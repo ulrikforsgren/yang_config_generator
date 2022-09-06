@@ -18,6 +18,9 @@ ifeq ($(shell test $(PYANG_VER_MIN) -lt 5; echo $$?),0)
   $(error pyang version 2.5.x or newer is required)
 endif
 
+PYANGOPTIONS=
+#PYANGOPTIONS=--ignore-errors
+
 all:
 	$(MAKE) tailf-ned-cisco-ios.json
 
@@ -27,6 +30,7 @@ tailf-ned-cisco-ios.json: tailf-ned-cisco-ios.yang\
 
 %.json-raw: %.yang
 	$(PYANGDIR)pyang -p $(NCS_DIR)/src/ncs/yang\
+	     $(PYANGOPTIONS)\
 	      --plugindir `pwd`/plugins -f pmod $< -o $@
 
 ab.json-raw: a.yang b.yang
