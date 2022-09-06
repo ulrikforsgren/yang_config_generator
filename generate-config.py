@@ -537,10 +537,60 @@ class IterContext:
         self.module = None
 
 
+def add_levels(schema, doc, kp, ctx):
+    indent = 0
+    ch = schema
+    tp = tuple()
+    for p in kp:
+        tp += (p,)
+        ch = ch.find(p)
+        if isinstance(ch, Container):
+            e = ET.SubElement(doc, ch.name)
+            if ch.module:
+                ctx.module = ch.module
+                ns = get_ns(ch.module, schema.json)
+                e.set('xmlns', ns)
+            doc = e
+        elif isinstance(ch, List):
+            # Create a random number of list elements between 0 and 5
+            n = 1  # random.randint(0, 2)
+            if n > 0:
+                for _ in range(0, n):
+                    e = ET.SubElement(doc, ch.name)
+                    if ch.module:
+                        ctx.module = ch.module
+                        ns = get_ns(ch.module, schema.json)
+                        e.set('xmlns', ns)
+                    # TODO: Handle uniqueness of key
+                    g = keypath_generators.get(tp)
+                    if g:
+                        if not hasattr(g, '__iter__'):
+                            g = [g]
+                        for ln, klg in zip(t.key_leafs, g):
+                            kl = ch.children[ln]
+                            ET.SubElement(e, ln).text = klg(kl.datatype)
+                    else:
+                        for ln in ch.key_leafs:
+                            kl = ch.children[ln]
+                            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, ctx.module, kl)
+            doc = e
+        else:
+            print("ERROR: Type not supported with --path")
+            sys.exit(1)
+    return e
+
+
 def iter_schema(args, schema, doc, ctx=None, ch=None):
-    # TODO: Keep track of current module
-    #       Move path into context object and pass that to iter_schema
-    ctx = ctx or IterContext()
+    if ctx is None:
+        ctx = IterContext()
+        if args.path:
+            kp = str2kp(args.path)
+            ch = find_kp(schema, kp)
+            if ch is None:
+                print(f"Path {args.path} not found")
+                sys.exit(1)
+            doc = add_levels(schema, doc, kp, ctx)
+
     ch = ch or schema
     for k, t in ch:
         if ':' in k:
