@@ -107,12 +107,12 @@ class PModPlugin(plugin.PyangPlugin):
             if error.is_error(error.err_level(etag)):
                 raise error.EmitError("PMod plugin needs a valid module")
         tree = {}
-        mods = {}
+        self.mods = {}
         annots = {}
         self.typedefs = {}
         self.identities = {}
         for m, p in unique_prefixes(ctx).items():
-            mods[m.i_modulename] = [p, m.search_one("namespace").arg]
+            self.mods[m.i_modulename] = [p, m.search_one("namespace").arg]
         for module in modules:
             for ann in module.search(("ietf-yang-metadata", "annotation")):
                 typ = ann.search_one("type")
@@ -122,10 +122,14 @@ class PModPlugin(plugin.PyangPlugin):
         for module in modules:
             for i, st in module.i_identities.items():
                 for b in st.search("base"):
-                    if b.arg not in self.identities:
-                        self.identities[b.arg] = []
-                    self.identities[b.arg].append(i)
-                self.identities[i] = []
+                    arg = b.arg
+                    if ':' in arg:
+                        arg = b.arg.split(':')[1]
+                    arg = f'{b.i_module.arg}:{arg}'
+                    if arg not in self.identities:
+                        self.identities[arg] = []
+                    self.identities[arg].append(f'{st.i_module.arg}:{i}')
+                self.identities[f'{st.i_module.arg}:{i}'] = []
         for i in self.identities:
             for sub in self.identities[i].copy():
                 if sub in self.identities:
@@ -134,7 +138,7 @@ class PModPlugin(plugin.PyangPlugin):
         for module in modules:
             self.process_children(module, tree, None)
         json.dump({
-            "modules": mods,
+            "modules": self.mods,
             "tree": tree,
             "typedefs": self.typedefs,
             "identities": self.identities,
@@ -229,7 +233,8 @@ class PModPlugin(plugin.PyangPlugin):
             # print(f"X {t}", end='')
             # pprint(td)
             self.add_typedef(t, td)
-            return ('typedef', t.arg)
+            arg = t.arg if not ':' in t.arg else t.arg.split(':')[1]
+            return ('typedef', f'{t.i_typedef.i_module.arg}:{arg}')
         ts = t.i_type_spec  # Is it better to use the type name instead?
         n = ts.name
         if n in ['uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64']:
@@ -285,7 +290,8 @@ class PModPlugin(plugin.PyangPlugin):
             rt = (ts.name, path.arg)
         elif n == 'identityref':
             base = t.search_one('base')
-            rt = (ts.name, base.arg)
+            arg = base.arg if not ':' in base.arg else base.arg.split(':')[1]
+            rt = (ts.name, f'{base.i_module.arg}:{arg}')
         elif n == 'binary':
             return None
         else:
@@ -293,6 +299,10 @@ class PModPlugin(plugin.PyangPlugin):
         return rt
 
     def add_typedef(self, t, rt):
-        if t.arg in self.typedefs:
+        arg = t.arg
+        if ':' in arg:
+            arg = arg.split(':')[1]
+        arg = f'{t.i_typedef.i_module.arg}:{arg}'
+        if arg in self.typedefs:
             return
-        self.typedefs[t.arg] = rt
+        self.typedefs[arg] = rt

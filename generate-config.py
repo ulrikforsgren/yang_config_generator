@@ -2,14 +2,11 @@
 
 import argparse
 import json
-import pprint as pp
 import random
 import sys
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
-
-pprint = pp.PrettyPrinter(indent=4).pprint
 
 import rstr
 
@@ -27,7 +24,6 @@ def prettify(elem):
 #    Get a value if exists/create if not?
 #    Create anyway if non-strict ...
 #  - Handle uniqueness of list keys
-#  - Refactor schema classes to make it easy to use and iterate the model.
 #  - Refactor generate_random_data to take only node as input.
 #  - Should there be a default generator for each native type?
 #    To gets rid of the if mess...
@@ -35,23 +31,72 @@ def prettify(elem):
 #  - Regexp like matching to create generator for arbitrary part of the model?
 #  - Handle min-elements/max-elements.
 
+
 def parseArgs(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--module', type=str, required=True,
                         help='Compiled YANG module (json)')
     parser.add_argument('-o', '--output', type=str, required=False,
                         help='Output file name')
-    parser.add_argument("--hierarchy", required=False, action='store_true', default=False)
-    parser.add_argument("--one-level", required=False, action='store_true', default=False)
-    parser.add_argument("-v", dest='verbose', required=False,
+    parser.add_argument('--hierarchy', required=False, action='store_true', default=False)
+    parser.add_argument('--leaves', required=False, action='store_true', default=False)
+    parser.add_argument('--one-level', required=False, action='store_true', default=False)
+    parser.add_argument('-v', dest='verbose', required=False,
                         action='store_true', default=False)
-    #    parser.add_argument('cmd', choices=['clean', 'create', 'read',
-    #                                        'update', 'delete', 'crud'])
-    #    parser.add_argument("-n", required=False, type=int)
-    #    parser.add_argument("-p", required=False, type=int)
-    #    parser.add_argument("-s", required=False, type=str)
-    #    parser.add_argument("--json", required=False, type=str)
+    parser.add_argument('-f', '--format', choices=['default', 'tailf-config', 'nso-device'], default='default')
+    parser.add_argument('-n', '--name', required=False, type=str, default='ce0')
+    parser.add_argument('-p', '--path', type=str, required=False,
+                        help='Start iterating at path')
     return parser.parse_args(args)
+
+
+def kp2str(kp):
+    path = ""
+    if len(kp) == 0:
+        return '/'
+    for m, n in kp:
+        if m is not None:
+            path += f'/{m}:{n}'
+        else:
+            path += f'/{n}'
+    return path
+
+
+def str2kp(path):
+    # path must always start with /
+    parts = path.split('/')
+    assert(parts[0] == '')
+    kp = []
+    for part in parts[1:]:
+        p = part.split(':')
+        if len(p) == 1:
+            kp.append((None, p[0]))
+        else:
+            kp.append((p[0], p[1]))
+    return kp
+
+
+# TODO: Handle namespaces/prefixes in a generic way. I.e. inherit the level above is not specified.
+# TODO: Handle choices (currently broken)
+def find_path(schema, path, kp=None):
+    # path is assumed to be well formatted, starting with a single /
+    kp = kp or str2kp(path)
+    (module, name) = kp[0]
+    for ch in schema.children.values():
+        if name == ch.name:
+            if module is False or module == ch.module:
+                if len(kp) == 1:
+                    return ch
+                return find_path(ch, path, kp[1:])
+    return None
+
+
+def find_kp(ch, kp):
+    for p in kp:
+        ch = ch.find(p)
+        if ch is None:
+            return None
+    return ch
 
 
 class Node:
@@ -60,15 +105,36 @@ class Node:
         self.name = name
         self.module = module
 
+    def get_kp(self):
+        kp = []
+        node = self
+        while isinstance(node, Node):
+            kp = [(node.module, node.name)] + kp
+            node = node.parent
+        return tuple(kp)
 
-class Container(Node):
-    def __init__(self, parent, name, module=None):
-        super().__init__(parent, name, module)
-        self.children = {}
 
+class HasChildren:
     def __iter__(self):
         for k, v in self.children.items():
             yield k, v
+
+    def find(self, p):
+        module, name = p
+        for ch in self.children.values():
+            if isinstance(ch, Choice):
+                ch = ch.find(p)
+                if ch is not None:
+                    return ch
+            elif name == ch.name and (module is None or module == ch.module):
+                return ch
+        return None
+
+
+class Container(Node, HasChildren):
+    def __init__(self, parent, name, module=None):
+        super().__init__(parent, name, module)
+        self.children = {}
 
 
 class Choice(Node):
@@ -86,17 +152,24 @@ class Choice(Node):
     def __getitem__(self, n):
         return self.choices[n]
 
+    def find(self, p):
+        module, name = p
+        for case in self.choices.values():
+            for _, ch in case.items():
+                if isinstance(ch, Choice):
+                    c = ch.find(p)
+                    if ch is not None:
+                        return ch
+                elif name == ch.name and (module is None or module == ch.module):
+                    return ch
+        return None
 
-class List(Node):
+class List(Node, HasChildren):
     def __init__(self, parent, name, key_leafs, module=None):
         super().__init__(parent, name, module)
         self.key_leafs = [l[1] for l in key_leafs]
         self.children = {}  # All children
         self.nk_children = {}  # Non key children
-
-    def __iter__(self):
-        for k, v in self.nk_children.items():
-            yield k, v
 
 
 class Leaf(Node):
@@ -110,15 +183,23 @@ class LeafList(Leaf):
     pass
 
 
-class Schema:
+class Schema(HasChildren):
     def __init__(self, schema=None):
+        self.json = schema
         self.children = {}
+        self.name = ''
+        self.module = ''
         if schema is not None:
-            load_schema(schema, self)
+            load_schema(schema['tree'], self)
 
-    def __iter__(self):
-        for k, v in self.children.items():
-            yield k, v
+    def get_kp(self):
+        return []
+
+    def prefix2module(self, prefix):
+        for m_name, (m_prefix, m_ns) in self.json['modules'].items():
+            if prefix == m_prefix:
+                return m_name
+        return None
 
 
 def load_schema(schema, node, children=None, parent=None):
@@ -127,6 +208,7 @@ def load_schema(schema, node, children=None, parent=None):
     for k, v in schema.items():
         nn = None
         m = None
+        mk = k
         if ':' in k:
             m, k = k.split(':')
         # print(k)
@@ -154,7 +236,7 @@ def load_schema(schema, node, children=None, parent=None):
         else:
             raise Exception(f'Unhandled type {t}')
         if nn is not None:
-            children[k] = nn
+            children[mk] = nn
 
 
 def compile_keypath_generators(d):
@@ -292,7 +374,9 @@ ilimits = {
 }
 
 
-def generate_random_data(datatype, schema, node, typedefs, identities):
+def generate_random_data(datatype, schema, module, node):
+    identities = schema.json['identities']
+    typedefs = schema.json['typedefs']
     dt, r = datatype
     v = None
     if dt == 'union':
@@ -384,36 +468,48 @@ def generate_random_data(datatype, schema, node, typedefs, identities):
         if g:
             return g(datatype)
         else:
-            return generate_random_data(typedefs[r], schema, node, typedefs, identities)  # Expand typedef
+            return generate_random_data(typedefs[r], schema, module, node)  # Expand typedef
     elif dt in ['ns-leafref', 'leafref']:
         # TODO: leafref must point to an existing leaf
         path = r.split('/')
         # TODO: handle paths with paths inside [ ]
         # ex: "/oc-if:interfaces/oc-if:interface[oc-if:name=current()/../interface]/oc-if:subinterfaces/oc-if:subinterface/oc-if:index"
+        # TODO: Create function that tracks the datatype that the leafref points to.
+        #       Needs to keep track of the current module when traversing back in the hierarchy
         if path[0] == '..':
             n = node
         else:
             n = schema
             path = path[1:]
+        left_module_ns = False
         for m in path:
-            if ':' in m: m = m.split(':', 1)[1]
             if m == '..':
+                if n.module is not None: left_module_ns = True  # How to handle multiple exits and up/downs?
+                                                                # Should probably not happen.
                 n = n.parent
             else:
+                if ':' in m:
+                    prefix, m = m.split(':')
+                    m = f'{schema.prefix2module(prefix)}:{m}'
+                else:
+                    if left_module_ns:
+                        # How to handle when leaving multiple namespaces?
+                        m = f'{module}:{m}'
+                        left_module_ns = False
                 try:
                     n = n.children[m]
                 except KeyError as e:
                     print(f"ERROR: Failed to find leafref {r}", file=sys.stderr)
-                    print(build_kp(node), file=sys.stderr)
-                    print(build_kp(n), file=sys.stderr)
+                    print(node.get_kp(), module, file=sys.stderr)
+                    print(n.get_kp(), file=sys.stderr)
                     raise e
-        kp = build_kp(n)
+        kp = n.get_kp()
         # TODO: Handle generator for a specific leaf
         if isinstance(n.parent, List) and n.name in n.parent.key_leafs:
             g = keypath_generators.get(kp[:-1])
             if g:
                 return g(n.datatype)
-        return generate_random_data(n.datatype, schema, n, typedefs, identities)
+        return generate_random_data(n.datatype, schema, module, n)
     elif dt == 'identityref':
         if r in identities:
             return pick_identity(identities, r)
@@ -431,122 +527,225 @@ def pick_identity(identities, r):
     return r if len(identities[r]) == 0 else random.choice(identities[r])
 
 
-def build_kp(node):
-    kp = []
-    while isinstance(node, Node):
-        kp = [node.name] + kp
-        node = node.parent
-    return tuple(kp)
-
-
 def get_ns(m, schema):
     return schema['modules'][m][1]
 
 
-def iter_schema(args, ch, doc, path=None, schema=None, json_schema=None, typedefs=None, identities=None):
-    path = path or tuple()
+class IterContext:
+    def __init__(self):
+        self.path = tuple()
+        self.module = None
+
+
+def create_list_entry(schema, doc, ch, tp, ctx):
+    e = ET.SubElement(doc, ch.name)
+    if ch.module:
+        ctx.module = ch.module
+        ns = get_ns(ch.module, schema.json)
+        e.set('xmlns', ns)
+    # TODO: Handle uniqueness of key
+    g = keypath_generators.get(tp)
+    if g:
+        if not hasattr(g, '__iter__'):
+            g = [g]
+        for ln, klg in zip(ch.key_leafs, g):
+            kl = ch.children[ln]
+            ET.SubElement(e, ln).text = klg(kl.datatype)
+    else:
+        for ln in ch.key_leafs:
+            kl = ch.children[ln]
+            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, ctx.module, kl)
+    return e
+
+
+def add_levels(schema, doc, kp, ctx):
+    indent = 0
+    ch = schema
+    tp = tuple()
+    for p in kp:
+        tp += (p,)
+        ch = ch.find(p)
+        if isinstance(ch, Container):
+            e = ET.SubElement(doc, ch.name)
+            if ch.module:
+                ctx.module = ch.module
+                ns = get_ns(ch.module, schema.json)
+                e.set('xmlns', ns)
+            doc = e
+        elif isinstance(ch, List):
+            # Create a random number of list elements between 0 and 5
+            n = 1  # random.randint(0, 2)
+            if n > 0:
+                for _ in range(0, n):
+                    e = create_list_entry(schema, doc, ch, tp, ctx)
+            doc = e
+        else:
+            print("ERROR: Type not supported with --path")
+            sys.exit(1)
+    return e
+
+
+def iter_schema(args, schema, doc, ctx=None, ch=None):
+    if ctx is None:
+        ctx = IterContext()
+        if args.path:
+            kp = str2kp(args.path)
+            ch = find_kp(schema, kp)
+            if ch is None:
+                print(f"Path {args.path} not found")
+                sys.exit(1)
+            doc = add_levels(schema, doc, kp, ctx)
+
+    ch = ch or schema
     for k, t in ch:
-        if args.verbose: print('Processing ' + '/'.join(path) + '/' + k)
         if ':' in k:
             m, k = k.split(':')
-        tp = path + (k,)
+        tp = ctx.path + (k,)
+        # Fix namespace support for verbose when path supports namespaces
+        if args.verbose: print(f'Processing {kp2str(t.get_kp())}')
         if isinstance(t, Container):
             e = ET.SubElement(doc, k)
             if t.module:
-                ns = get_ns(t.module, json_schema)
+                ctx.module = t.module
+                ns = get_ns(t.module, schema.json)
                 e.set('xmlns', ns)
-            iter_schema(args, t, e, path=tp, schema=schema, json_schema=json_schema,
-                        typedefs=typedefs, identities=identities)
+            iter_schema(args, schema, e, ctx, t)
         elif isinstance(t, List):
             # Create a random number of list elements between 0 and 5
             n = 1  # random.randint(0, 2)
             if n > 0:
                 for _ in range(0, n):
-                    e = ET.SubElement(doc, k)
-                    if t.module:
-                        ns = get_ns(t.module, json_schema)
-                        e.set('xmlns', ns)
-                    # TODO: Handle uniqueness of key
-                    g = keypath_generators.get(tp)
-                    if g:
-                        if not hasattr(g, '__iter__'):
-                            g = [g]
-                        for ln, klg in zip(t.key_leafs, g):
-                            kl = t.children[ln]
-                            ET.SubElement(e, ln).text = klg(kl.datatype)
-                    else:
-                        for ln in t.key_leafs:
-                            kl = t.children[ln]
-                            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, kl, typedefs,
-                                                                             identities)
-                    iter_schema(args, t, e, path=tp, schema=schema, json_schema=json_schema,
-                                typedefs=typedefs, identities=identities)
+                    e = create_list_entry(schema, doc, t, tp, ctx)
+                    iter_schema(args, schema, e, ctx, t)
         elif isinstance(t, Choice):
             m = t[random.choice(list(t.choices.keys()))]
-            iter_schema(args, m.items(), doc, path=tp, schema=schema,
-                        json_schema=json_schema, typedefs=typedefs, identities=identities)
+            iter_schema(args, schema, doc, ctx, m.items())
         elif isinstance(t, Leaf):
             e = ET.SubElement(doc, k)
             g = keypath_generators.get(tp)
             if g:
                 v = g(t.datatype)
             else:
-                v = generate_random_data(t.datatype, schema, t, typedefs, identities)
+                v = generate_random_data(t.datatype, schema, ctx.module, t)
             e.text = v
             if t.module:
-                ns = get_ns(t.module, json_schema)
+                ns = get_ns(t.module, schema.json)
                 e.set('xmlns', ns)
         else:
             raise Exception(f"Unhandled type {type(t)}")
 
 
-def print_schema(args, ch, path=None, schema=None, json_schema=None, indent=0):
-    path = path or tuple()
+def print_levels(schema, kp):
+    indent = 0
+    ch = schema
+    for p in kp:
+        ch = ch.find(p)
+        if isinstance(ch, Container):
+            print(f"{' ' * (indent * 4)}{ch.name} (container)")
+        elif isinstance(ch, List):
+            keys = ','.join(ch.key_leafs)
+            print(f"{' ' * (indent * 4)}{ch.name} (list: {keys})")
+        elif isinstance(ch, Choice):
+            # Only print container or list choices
+            print(f"{' ' * (indent * 4)}{ch.name} (choice)")
+            for k in ch.choices.keys():
+                m = t[k]
+                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
+        indent += 1
+
+
+def print_schema(args, schema, indent=0):
+    if indent == 0 and args.path:
+        kp = str2kp(args.path)
+        ch = find_kp(schema, kp)
+        if ch is None:
+            print(f"Path {args.path} not found")
+            sys.exit(1)
+        else:
+            print_levels(schema, kp)
+            indent = len(kp)
+    else:
+        ch = schema
     for k, t in ch:
-        if args.verbose: print('Processing ' + '/'.join(path) + '/' + k)
-        if ':' in k:
-            m, k = k.split(':')
-        tp = path + (k,)
+        if args.verbose:
+            print(f'Processing {kp2str(t.get_kp())}')
         if isinstance(t, Container):
             print(f"{' ' * (indent * 4)}{k} (container)")
             if not args.one_level:
-                print_schema(args, t, path=tp, schema=schema, json_schema=json_schema,
-                             indent=indent + 1)
+                print_schema(args, t, indent=indent + 1)
         elif isinstance(t, List):
             keys = ','.join(t.key_leafs)
             print(f"{' ' * (indent * 4)}{k} (list: {keys})")
             if not args.one_level:
-                print_schema(args, t, path=tp, schema=schema, json_schema=json_schema,
-                             indent=indent + 1)
+                print_schema(args, t, indent=indent + 1)
         elif isinstance(t, Choice):
             # Only print container or list choices
+            print(f"{' ' * (indent * 4)}{k} (choice)")
             for k in t.choices.keys():
-                print(f"{' ' * (indent * 4)}{k} (choice")
                 m = t[k]
-                print_schema(args, m.items(), path=tp, schema=schema,
-                             json_schema=json_schema, indent=indent + 1)
+                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
+                print_schema(args, m.items(), indent=indent + 2)
+        elif isinstance(t, Leaf):
+            if args.leaves:
+                print(f"{' ' * ((indent) * 4)}{k} (leaf) ({t.datatype[0]})")
+
+
+def output_default():
+    return '''<?xml version="1.0" ?>
+        <xml-root/>''', 'root', None
+
+
+def output_nso_device(name):
+    return f'''<?xml version="1.0" ?>
+        <config xmlns="http://tail-f.com/ns/config/1.0">
+        <devices xmlns="http://tail-f.com/ns/ncs">
+        <device>
+        <name>{name}</name>
+        <xml-root/>
+        </device>
+        </devices>
+        </config>''', 'config', 'http://tail-f.com/ns/ncs'
+
+
+def output_config():
+    return '''<?xml version="1.0" ?>
+<xml-root/>''', 'config', "http://tail-f.com/ns/config/1.0"
+
+
+def prepare_output(args):
+    if args.format == 'default':
+        fmt, rn, ns = output_default()
+    elif args.format == 'nso-device':
+        fmt, rn, ns = output_nso_device(args.name)
+    elif args.format == 'tailf-config':
+        fmt, rn, ns = output_config()
+
+    doc = ET.fromstring(fmt)
+    if doc.tag == 'xml-root':
+        xmlroot = doc
+    else:
+        fns = f'{{{ns}}}' if ns else ''
+        xmlroot = doc.find(f'.//{fns}xml-root')
+    if rn is not None:
+        xmlroot.tag = rn
+    if ns is not None:
+        xmlroot.attrib['xmlns'] = ns
+
+    return doc, xmlroot
 
 
 def main(args):
-    schema = json.loads(open(args.module).read())
-    tree = schema['tree']
-    typedefs = schema['typedefs']
-    identities = schema['identities']
+    json_schema = json.loads(open(args.module).read())
+    schema = Schema(json_schema)
 
-    config = ET.Element("config", xmlns="http://tail-f.com/ns/config/1.0")
-    devices = ET.SubElement(config, "devices", xmlns="http://tail-f.com/ns/ncs")
-    device = ET.SubElement(devices, "device")
-    ET.SubElement(device, "name").text = "ce0"
-    dev_config = ET.SubElement(device, "config")
-
-    s = Schema(tree)
     if not args.hierarchy:
-        iter_schema(args, s, dev_config, schema=s, json_schema=schema, typedefs=typedefs, identities=identities)
+        doc, xmlroot = prepare_output(args)
+        iter_schema(args, schema, xmlroot)
 
         output_file = open(args.output, 'w') if args.output else sys.stdout
-        output_file.write(prettify(config))
+        output_file.write(prettify(doc))
     else:
-        print_schema(args, s, schema=s, json_schema=schema)
+        print_schema(args, schema)
 
 
 if __name__ == "__main__":
