@@ -566,14 +566,14 @@ def output_default():
 
 def output_nso_device(name):
     return f'''<?xml version="1.0" ?>
-<config xmlns="http://tail-f.com/ns/config/1.0">
-<devices xmlns="http://tail-f.com/ns/ncs">
-<device>
-<name>{name}</name>
-<xml-root/>
-</device>
-</devices>
-</config>''', 'config', 'http://tail-f.com/ns/ncs'
+        <config xmlns="http://tail-f.com/ns/config/1.0">
+        <devices xmlns="http://tail-f.com/ns/ncs">
+        <device>
+        <name>{name}</name>
+        <xml-root/>
+        </device>
+        </devices>
+        </config>''', 'config', 'http://tail-f.com/ns/ncs'
 
 
 def output_config():
