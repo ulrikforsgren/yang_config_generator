@@ -32,7 +32,7 @@ def prettify(elem):
 #  - Handle min-elements/max-elements.
 
 
-def parseArgs(args):
+def parseargs(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--module', type=str, required=True,
                         help='Compiled YANG module (json)')
@@ -157,12 +157,13 @@ class Choice(Node):
         for case in self.choices.values():
             for _, ch in case.items():
                 if isinstance(ch, Choice):
-                    c = ch.find(p)
+                    ch = ch.find(p)
                     if ch is not None:
                         return ch
                 elif name == ch.name and (module is None or module == ch.module):
                     return ch
         return None
+
 
 class List(Node, HasChildren):
     def __init__(self, parent, name, key_leafs, module=None):
@@ -192,9 +193,6 @@ class Schema(HasChildren):
         if schema is not None:
             load_schema(schema['tree'], self)
 
-    def get_kp(self):
-        return []
-
     def prefix2module(self, prefix):
         for m_name, (m_prefix, m_ns) in self.json['modules'].items():
             if prefix == m_prefix:
@@ -206,12 +204,10 @@ def load_schema(schema, node, children=None, parent=None):
     children = children if children is not None else node.children
     parent = parent or node
     for k, v in schema.items():
-        nn = None
         m = None
         mk = k
         if ':' in k:
             m, k = k.split(':')
-        # print(k)
         t, dt, *r = v
         if t == 'container':
             nn = Container(parent, k, m)
@@ -228,7 +224,6 @@ def load_schema(schema, node, children=None, parent=None):
                 c = {}
                 nn.choices[case] = c
                 load_schema(v, nn, parent=parent, children=c)
-            pass
         elif t == 'leaf':
             nn = Leaf(parent, k, dt, m)
         elif t == 'leaf-list':
@@ -248,50 +243,50 @@ def compile_keypath_generators(d):
     return g
 
 
-def string_generator(datatype):
+def string_generator(_datatype):
     return rstr.xeger("[a-z][a-z0-9_-]+")
 
 
-def ulrik_generator(datatype):
+def ulrik_generator(_datatype):
     return rstr.xeger("[uU][lL][rR][iI][kK]")
 
 
-def ipv4_generator(datatype):
+def ipv4_generator(_datatype):
     return '{}.{}.{}.{}'.format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255),
                                 random.randint(0, 255))
 
 
-def ipv4_prefix_generator(datatype):
+def ipv4_prefix_generator(_datatype):
     return '{}.{}.{}.{}/{}'.format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255),
                                    random.randint(0, 255), random.randint(1, 32))
 
 
-def ipv6_generator(datatype):
+def ipv6_generator(_datatype):
     return '{:04X}:{:04X}::{:02X}'.format(random.randint(0, 65535), random.randint(0, 65535), random.randint(0, 255))
 
 
-def ipv6_prefix_generator(datatype):
+def ipv6_prefix_generator(_datatype):
     return '{:04X}:{:04X}::{:02X}/{}'.format(random.randint(0, 65535), random.randint(0, 65535), random.randint(0, 255),
                                              random.randint(0, 127))
 
 
-def rd_generator(datatype):
+def rd_generator(_datatype):
     return '{}:{}'.format(random.randint(0, 65535), random.randint(0, 255))
 
 
-def uint16_generator(datatype):
+def uint16_generator(_datatype):
     return str(random.randint(0, 511))
 
 
-def uint16sub_generator(datatype):
+def uint16sub_generator(_datatype):
     return '{}.{}'.format(random.randint(0, 511), random.randint(0, 128))
 
 
-def eth_generator(datatype):
+def eth_generator(_datatype):
     return '{}/{}'.format(random.randint(0, 66), random.randint(0, 128))
 
 
-def permit_expr_generator(datatype):
+def permit_expr_generator(_datatype):
     """
   ((internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))*
     """
@@ -299,24 +294,24 @@ def permit_expr_generator(datatype):
     return 'internet'
 
 
-def permit_generator(datatype):
+def permit_generator(_datatype):
     return rstr.xeger("(permit|deny|remark) [a-z ]{5-15}")
 
 
-def acl_generator(datatype):
+def acl_generator(_datatype):
     return rstr.xeger(
         "(permit [a-z ]{5,15})|(deny [a-z ]{5,15})|(remark [a-z ]{5,15})|([0-9]+)|(dynamic [a-z ]{5,15})|(evaluate [a-z ]{5,15})")
 
 
-def acl2_generator(datatype):
+def acl2_generator(_datatype):
     return rstr.xeger("(permit [a-z ]{5,15})|(deny [a-z ]{5,15})|(remark [a-z ]{5,15})|([0-9]+)|(dynamic [a-z ]{5,15})")
 
 
-def hex_generator(datatype):
+def hex_generator(_datatype):
     return rstr.xeger("[a-fA-F0-9]*")
 
 
-def aaa_name_generator(datatype):
+def aaa_name_generator(_datatype):
     return rstr.xeger("(default)|([a-z_]{5,15})")
 
 
@@ -691,24 +686,27 @@ def print_schema(args, schema, indent=0):
 
 
 def output_default():
-    return '''<?xml version="1.0" ?>
-        <xml-root/>''', 'root', None
+    return '''\
+<?xml version="1.0" ?>
+<xml-root/>''', 'root', None
 
 
 def output_nso_device(name):
-    return f'''<?xml version="1.0" ?>
-        <config xmlns="http://tail-f.com/ns/config/1.0">
-        <devices xmlns="http://tail-f.com/ns/ncs">
+    return f'''\
+<?xml version="1.0" ?>
+<config xmlns="http://tail-f.com/ns/config/1.0">
+    <devices xmlns="http://tail-f.com/ns/ncs">
         <device>
-        <name>{name}</name>
-        <xml-root/>
+            <name>{name}</name>
+            <xml-root/>
         </device>
-        </devices>
-        </config>''', 'config', 'http://tail-f.com/ns/ncs'
+    </devices>
+</config>''', 'config', 'http://tail-f.com/ns/ncs'
 
 
 def output_config():
-    return '''<?xml version="1.0" ?>
+    return '''\
+<?xml version="1.0" ?>
 <xml-root/>''', 'config', "http://tail-f.com/ns/config/1.0"
 
 
@@ -749,4 +747,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(parseArgs(sys.argv[1:]))
+    main(parseargs(sys.argv[1:]))
