@@ -163,13 +163,17 @@ class PModPlugin(plugin.PyangPlugin):
             else:
                 nmod = ch.i_module.i_modulename
                 nodename = "%s:%s" % (nmod, ch.arg)
-            ndata = [ch.keyword]
+            when = ch.search_one('when')
+            when = when.arg if when is not None else ''
+            must = ch.search_one('must')
+            must = must.arg if must is not None else ''
+            ndata = [ch.keyword, (when, must)]
             if ch.keyword == "container":
                 ndata.append({})
-                self.process_children(ch, ndata[1], nmod)
+                self.process_children(ch, ndata[2], nmod)
             elif ch.keyword == "list":
                 ndata.append({})
-                self.process_children(ch, ndata[1], nmod)
+                self.process_children(ch, ndata[2], nmod)
                 ndata.append([(k.i_module.i_modulename, k.arg)
                               for k in ch.i_key])
             elif ch.keyword in ["leaf", "leaf-list"]:
@@ -187,7 +191,7 @@ class PModPlugin(plugin.PyangPlugin):
                 ndata.append(dt)
             elif ch.keyword in ["choice"]:
                 ndata.append({})
-                self.process_children(ch, ndata[1], pmod)
+                self.process_children(ch, ndata[2], pmod)
             modname = ch.i_module.i_modulename
             parent[nodename] = ndata
 

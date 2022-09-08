@@ -103,11 +103,15 @@ def find_kp(ch, kp):
 
 
 class Node:
-    def __init__(self, parent, name, module=None, **kw):
+    def __init__(self, parent, name, module=None, wm=None, **kw):
         super().__init__(**kw)
         self.parent = parent
         self.name = name
         self.module = module
+        self.when = ''
+        self.must = ''  # Not all nodes have support for must, but it will be validated by pyang and empty for those.
+        if wm is not None:
+            self.when, self.must = wm
 
     def get_kp(self):
         kp = []
@@ -149,13 +153,13 @@ class HasChildren:
 
 
 class Container(Node, HasChildren):
-    def __init__(self, parent, name, module=None):
-        super().__init__(parent, name, module)
+    def __init__(self, parent, name, module=None, wm=None):
+        super().__init__(parent, name, module, wm)
 
 
 class Choice(Node):
-    def __init__(self, parent, name):
-        super().__init__(parent, name)
+    def __init__(self, parent, name, wm=None):
+        super().__init__(parent, name, wm=wm)
         self.choices = {}
 
     def __iter__(self):
@@ -182,15 +186,15 @@ class Choice(Node):
 
 
 class List(Node, HasChildren):
-    def __init__(self, parent, name, key_leafs, module=None):
-        super().__init__(parent, name, module)
+    def __init__(self, parent, name, key_leafs, module=None, wm=None):
+        super().__init__(parent, name, module, wm)
         self.key_leafs = [kl[1] for kl in key_leafs]
         self.nk_children = {}  # Non key children
 
 
 class Leaf(Node):
-    def __init__(self, parent, name, datatype, module=None):
-        super().__init__(parent, name, module)
+    def __init__(self, parent, name, datatype, module=None, wm=None):
+        super().__init__(parent, name, module, wm)
         self.datatype = datatype
 
 
@@ -213,6 +217,8 @@ class Schema(HasChildren):
                 return m_name
         return None
 
+    def get_kp(self):
+        return []
 
 def load_schema(schema, node, children=None, parent=None):
     children = children if children is not None else node.children
@@ -222,26 +228,26 @@ def load_schema(schema, node, children=None, parent=None):
         mk = k
         if ':' in k:
             m, k = k.split(':')
-        t, dt, *r = v
+        t, wm, dt, *r = v
         if t == 'container':
-            nn = Container(parent, k, m)
+            nn = Container(parent, k, m, wm=wm)
             load_schema(dt, nn)
         elif t == 'list':
-            nn = List(parent, k, r[0], m)
+            nn = List(parent, k, r[0], m, wm=wm)
             load_schema(dt, nn)
             for c, v in nn.children.items():
                 if c not in nn.key_leafs:
                     nn.nk_children[c] = v
         elif t == 'choice':
-            nn = Choice(parent, k)
+            nn = Choice(parent, k, wm=wm)
             for case, v in dt.items():
                 c = {}
                 nn.choices[case] = c
                 load_schema(v, nn, parent=parent, children=c)
         elif t == 'leaf':
-            nn = Leaf(parent, k, dt, m)
+            nn = Leaf(parent, k, dt, m, wm=wm)
         elif t == 'leaf-list':
-            nn = LeafList(parent, k, dt, m)
+            nn = LeafList(parent, k, dt, m, wm=wm)
         else:
             raise Exception(f'Unhandled type {t}')
         if nn is not None:
@@ -755,13 +761,6 @@ def print_schema(args, schema, indent=0):
 ###########################################################################
 def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
     root = ctx is None
-    if ctx is None:
-        ctx = ComplexContext()
-        cnt = count_leaves(args, schema, ctx)
-        if not args.rich:
-            print(f"/ leaves: {cnt}")
-        else:
-            table.add_row('/', '', f'{cnt}')
     if indent == 0:
         if args.path:
             kp = str2kp(args.path)
@@ -772,9 +771,20 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
             else:
                 #TODO: Find equivalent for print_levels(schema, kp)
                 indent = len(kp)
+    if ctx is None:
+        ctx = ComplexContext()
+        cnt = count_leaves(args, schema, ctx)
+        if not args.rich:
+            print(f"/ leaves: {cnt}")
+        else:
+            table.add_row(kp2str(schema.get_kp()), '', f'{cnt}')
     for k, t in schema:
         if args.verbose:
             print(f'Processing {kp2str(t.get_kp())}')
+        if t.when:
+            ctx.whens.append(t)
+        if t.must:
+            ctx.musts.append(t)
         if isinstance(t, Container):
             if not args.one_level:
                 print_schema_complexity(args, t, indent=indent, table=table, ctx=ctx)
@@ -803,13 +813,12 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
                 else:
                     table.add_row(f"{' ' * ((indent+1) * 4)}{k} (case)", '', f'{cnt}')
                 print_schema_complexity(args, m.items(), indent=indent + 2,table=table, ctx=ctx)
+        elif isinstance(t, Leaf):
+            dt, meta = t.datatype
+            if dt in ['leafref', 'ns-leafref']:
+                ctx.leafrefs.append(t)
     if root:
         return ctx
-
-
-class ComplexContext:
-    def __init__(self):
-        self.leafrefs = []
 
 
 def count_leaves(args, ch, ctx):
@@ -819,12 +828,14 @@ def count_leaves(args, ch, ctx):
             cnt += count_leaves(args, t, ctx)
         elif isinstance(t, Leaf):
             cnt += 1
-            dt, meta = t.datatype
-            if dt in ['leafref', 'ns-leafref']:
-                ctx.leafrefs.append(t)
     return cnt
 
 
+class ComplexContext:
+    def __init__(self):
+        self.leafrefs = []
+        self.whens = []
+        self.musts = []
 #############################################################################################################
 #  Main
 #############################################################################################################
