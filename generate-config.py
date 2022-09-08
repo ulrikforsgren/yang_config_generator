@@ -40,7 +40,9 @@ def parseargs(args):
                         help='Output file name')
     parser.add_argument('--hierarchy', required=False, action='store_true', default=False)
     parser.add_argument('--leaves', required=False, action='store_true', default=False)
+    parser.add_argument('--complex', required=False, action='store_true', default=False)
     parser.add_argument('--one-level', required=False, action='store_true', default=False)
+    parser.add_argument('--rich', required=False, action='store_true', default=False)
     parser.add_argument('-v', dest='verbose', required=False,
                         action='store_true', default=False)
     parser.add_argument('-f', '--format', choices=['default', 'tailf-config', 'nso-device'], default='default')
@@ -50,15 +52,16 @@ def parseargs(args):
     return parser.parse_args(args)
 
 
-def kp2str(kp):
-    path = ""
-    if len(kp) == 0:
-        return '/'
-    for m, n in kp:
+def kp2str(kp, starting_slash=True):
+    def mod_colon_name(e):
+        m,n = e
         if m is not None:
-            path += f'/{m}:{n}'
-        else:
-            path += f'/{n}'
+            return f'{m}:{n}'
+        return n
+    mcn = map(mod_colon_name, kp)
+    path = '/'.join(mcn)
+    if starting_slash:
+        path = '/' + path
     return path
 
 
@@ -110,6 +113,15 @@ class Node:
         kp = []
         node = self
         while isinstance(node, Node):
+            kp = [(node.module, node.name)] + kp
+            node = node.parent
+        return tuple(kp)
+
+    def get_kp2level(self):
+        node = self
+        kp = [(node.module, node.name)]
+        node = node.parent
+        while not isinstance(node, Schema) and not isinstance(node, List):
             kp = [(node.module, node.name)] + kp
             node = node.parent
         return tuple(kp)
@@ -738,18 +750,129 @@ def print_schema(args, schema, indent=0):
                 print(f"{' ' * ((indent) * 4)}{k} (leaf) ({t.datatype[0]})")
 
 
+###########################################################################
+#  Print schema complexity
+###########################################################################
+def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
+    root = ctx is None
+    if ctx is None:
+        ctx = ComplexContext()
+        cnt = count_leaves(args, schema, ctx)
+        if not args.rich:
+            print(f"/ leaves: {cnt}")
+        else:
+            table.add_row('/', '', f'{cnt}')
+    if indent == 0:
+        if args.path:
+            kp = str2kp(args.path)
+            schema = find_kp(schema, kp)
+            if schema is None:
+                print(f"Path {args.path} not found")
+                sys.exit(1)
+            else:
+                #TODO: Find equivalent for print_levels(schema, kp)
+                indent = len(kp)
+    for k, t in schema:
+        if args.verbose:
+            print(f'Processing {kp2str(t.get_kp())}')
+        if isinstance(t, Container):
+            if not args.one_level:
+                print_schema_complexity(args, t, indent=indent, table=table, ctx=ctx)
+        elif isinstance(t, List):
+            cnt = count_leaves(args, t, ctx)
+            keys = ','.join(t.key_leafs)
+            if not args.rich:
+                print(f"{' ' * (indent * 4)}{k} (list: {keys}) leaves: {cnt}")
+            else:
+                kp = kp2str(t.get_kp2level(), starting_slash=False)
+                table.add_row(f"{' ' * (indent * 4)}{kp}", f'{keys}', f'{cnt}')
+            if not args.one_level:
+                print_schema_complexity(args, t, indent=indent + 1, table=table, ctx=ctx)
+        elif isinstance(t, Choice):
+            # Only print container or list choices
+            if not args.rich:
+                print(f"{' ' * (indent * 4)}{k} (choice)")
+            else:
+                kp = kp2str(t.get_kp2level(), starting_slash=False)
+                table.add_row(f"{' ' * (indent * 4)}{kp} (choice)", '', '')
+            for k in t.choices.keys():
+                m = t[k]
+                cnt = count_leaves(args, m.items(), ctx)
+                if not args.rich:
+                    print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s)) leaves: {cnt}")
+                else:
+                    table.add_row(f"{' ' * ((indent+1) * 4)}{k} (case)", '', f'{cnt}')
+                print_schema_complexity(args, m.items(), indent=indent + 2,table=table, ctx=ctx)
+    if root:
+        return ctx
+
+
+class ComplexContext:
+    def __init__(self):
+        self.leafrefs = []
+
+
+def count_leaves(args, ch, ctx):
+    cnt = 0
+    for k, t in ch:
+        if isinstance(t, Container):
+            cnt += count_leaves(args, t, ctx)
+        elif isinstance(t, Leaf):
+            cnt += 1
+            dt, meta = t.datatype
+            if dt in ['leafref', 'ns-leafref']:
+                ctx.leafrefs.append(t)
+    return cnt
+
+
+#############################################################################################################
+#  Main
+#############################################################################################################
+
 def main(args):
     json_schema = json.loads(open(args.module).read())
     schema = Schema(json_schema)
 
-    if not args.hierarchy:
+    if args.hierarchy:
+        print_schema(args, schema)
+    elif args.complex:
+        if args.rich:
+            from rich.console import Console
+            from rich.table import Table
+            table = Table()
+            table.add_column("List", justify="left", no_wrap=True)
+            table.add_column("Keys", justify="left", no_wrap=True)
+            table.add_column("No leaves", justify="right", no_wrap=True)
+        else:
+            table = None
+        ctx = print_schema_complexity(args, schema, table=table)
+        if args.rich:
+            console = Console()
+            console.print(table)
+            print()
+            lf_table = Table()
+            lf_table.add_column("Leafref", justify="left", no_wrap=True)
+            lf_table.add_column("Path", justify="left", no_wrap=True)
+            nslf_table = Table()
+            nslf_table.add_column("Non-strict leafref", justify="left", no_wrap=True)
+            nslf_table.add_column("Path", justify="left", no_wrap=True)
+            for lf in ctx.leafrefs:
+                dt, path = lf.datatype
+                if dt == 'leafref':
+                    lf_table.add_row(kp2str(lf.get_kp()), path)
+                else:
+                  nslf_table.add_row(kp2str(lf.get_kp()), path)
+            console.print(lf_table)
+            print()
+            console.print(nslf_table)
+
+
+    else:
         doc, xmlroot = prepare_output(args)
         iter_schema(args, schema, xmlroot)
 
         output_file = open(args.output, 'w') if args.output else sys.stdout
         output_file.write(prettify(doc))
-    else:
-        print_schema(args, schema)
 
 
 if __name__ == "__main__":
