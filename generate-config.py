@@ -43,6 +43,7 @@ def parseargs(args):
     parser.add_argument('--complex', required=False, action='store_true', default=False)
     parser.add_argument('--one-level', required=False, action='store_true', default=False)
     parser.add_argument('--rich', required=False, action='store_true', default=False)
+    parser.add_argument('--desc', required=False, action='store_true', default=False)
     parser.add_argument('-v', dest='verbose', required=False,
                         action='store_true', default=False)
     parser.add_argument('-f', '--format', choices=['default', 'tailf-config', 'nso-device'], default='default')
@@ -836,6 +837,84 @@ class ComplexContext:
         self.leafrefs = []
         self.whens = []
         self.musts = []
+
+
+###########################################################################
+#  Print generator descriptor
+###########################################################################
+# Approaches to generator a descriptor:
+#  - Include every list and container
+#  - Include only lists
+#
+# Options:
+#  - Add default generators for key leafs (no specified --> use default generator)
+#  - Add all leafs
+#
+# Options to add comments for:
+#  - List keys
+#  - Leafrefs
+#  - Must statements
+#  - When statements
+#
+# Questions:
+#  - How to handle choices?
+#   - Default is implicit?
+#   - Explicit specification
+#
+
+def print_gen_desc(args, schema, indent=0, root=True):
+    if indent == 0:
+        if args.path:
+            kp = str2kp(args.path)
+            schema = find_kp(schema, kp)
+            if schema is None:
+                print(f"Path {args.path} not found")
+                sys.exit(1)
+            else:
+                #TODO: Find equivalent for print_levels(schema, kp)
+                indent = len(kp)
+    if root:
+        print('generator_descriptor = {')
+    n = 0
+    pn = 0
+    for k, t in schema:
+        if pn != n:
+            print(',')
+        pn = n
+        if args.verbose:
+            print(f'Processing {kp2str(t.get_kp())}')
+        if t.when:
+            pass
+        if t.must:
+            pass
+        if isinstance(t, Container):
+            n += 1
+            print(f"{' ' * ((indent+1) * 4)}\"{k}\": {{")
+            print_gen_desc(args, t, indent=indent+1, root=False)
+            print(f"{' ' * ((indent+1) * 4)}}}", end='')
+        elif isinstance(t, List):
+            n += 1
+            keys = ','.join(t.key_leafs)
+            print(f"{' ' * ((indent+1) * 4)}\"{k}\": {{  # {keys}")
+            print_gen_desc(args, t, indent=indent+1, root=False)
+            print(f"{' ' * ((indent+1) * 4)}}}", end='')
+        elif isinstance(t, Choice):
+            pass
+            # Only print container or list choices
+            #print(f"{' ' * (indent * 4)}{k} (choice)")
+            #for k in t.choices.keys():
+            ##    m = t[k]
+            #   cnt = count_leaves(args, m.items(), ctx)
+            #   print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s)) leaves: {cnt}")
+            #   print_schema_complexity(args, m.items(), indent=indent + 2)
+        elif isinstance(t, Leaf):
+            dt, meta = t.datatype
+            if dt in ['leafref', 'ns-leafref']:
+                pass
+    print()
+    if root:
+        print('}')
+
 #############################################################################################################
 #  Main
 #############################################################################################################
@@ -873,10 +952,25 @@ def main(args):
                     lf_table.add_row(kp2str(lf.get_kp()), path)
                 else:
                   nslf_table.add_row(kp2str(lf.get_kp()), path)
+            console.print(nslf_table)
+            print()
             console.print(lf_table)
             print()
-            console.print(nslf_table)
-
+            w_table = Table()
+            w_table.add_column("When", justify="left", no_wrap=True)
+            w_table.add_column("Xpath", justify="left", no_wrap=True)
+            for w in ctx.whens:
+                w_table.add_row(kp2str(w.get_kp()), w.when)
+            console.print(w_table)
+            m_table = Table()
+            m_table.add_column("Must", justify="left", no_wrap=True)
+            m_table.add_column("Xpath", justify="left", no_wrap=True)
+            for m in ctx.musts:
+                m_table.add_row(kp2str(m.get_kp()), m.must)
+            print()
+            console.print(m_table)
+    elif args.desc:
+        print_gen_desc(args, schema)
 
     else:
         doc, xmlroot = prepare_output(args)
