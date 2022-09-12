@@ -44,6 +44,7 @@ def parseargs(args):
     parser.add_argument('--one-level', required=False, action='store_true', default=False)
     parser.add_argument('--rich', required=False, action='store_true', default=False)
     parser.add_argument('--desc', required=False, action='store_true', default=False)
+    parser.add_argument('--iterdesc', required=False, type=str, default=False)
     parser.add_argument('-v', dest='verbose', required=False,
                         action='store_true', default=False)
     parser.add_argument('-f', '--format', choices=['default', 'tailf-config', 'nso-device'], default='default')
@@ -149,6 +150,13 @@ class HasChildren:
             elif name == ch.name and (module is None or module == ch.module):
                 return ch
         return None
+
+    def find_path(self, p):
+        m = None
+        n = p
+        if ':' in p:
+            m,n = p.split(':')
+        return self.find((m,n))
 
 
 class Container(Node, HasChildren):
@@ -924,6 +932,32 @@ def print_gen_desc(args, schema, indent=0, root=True):
     if root:
         print('}')
 
+
+###########################################################################
+#  Print generator descriptor
+###########################################################################
+# TODO:
+#  * How to handle invalid entries: stop-on-error, warning-on-error?
+#  * Ideas for strategies for how to iterate
+#    - Visit only nodes in descriptor.
+#    - Visit all nodes specified by --path, alter with descriptor.
+#    - ...
+def iterate_descriptor(args, schema, desc):
+    for k, v in desc.items():
+        if k.startswith('__'):
+            if k == '__NO_INSTANCES':
+                pass
+        else:
+            n = schema.find_path(k)
+            print(n)
+            if isinstance(v, dict):
+                iterate_descriptor(args, n, v)
+            elif callable(v):
+                value = v(n)
+                print(f"{n.name} set to {value}")
+            else:
+                print("X")
+
 #############################################################################################################
 #  Main
 #############################################################################################################
@@ -980,6 +1014,15 @@ def main(args):
             console.print(m_table)
     elif args.desc:
         print_gen_desc(args, schema)
+    elif args.iterdesc:
+        import importlib.machinery
+        import importlib.util
+        loader = importlib.machinery.SourceFileLoader(args.iterdesc, args.iterdesc)
+        spec = importlib.util.spec_from_loader(args.iterdesc, loader)
+        mymodule = importlib.util.module_from_spec(spec)
+        loader.exec_module(mymodule)
+        iterate_descriptor(args, schema, mymodule.generator_descriptor)
+
 
     else:
         doc, xmlroot = prepare_output(args)
