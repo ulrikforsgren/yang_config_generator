@@ -781,7 +781,7 @@ def print_levels(schema, kp):
             # Only print container or list choices
             print(f"{' ' * (indent * 4)}{ch.name} (choice)")
             for k in ch.choices.keys():
-                m = t[k]
+                m = ch[k]
                 print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
         indent += 1
 
