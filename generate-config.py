@@ -39,7 +39,7 @@ def parseargs(args):
     parser.add_argument('-o', '--output', type=str, required=False,
                         help='Output file name')
     parser.add_argument('--hierarchy', required=False, action='store_true', default=False)
-    parser.add_argument('--leaves', required=False, action='store_true', default=False)
+    parser.add_argument('--leafs', required=False, action='store_true', default=False)
     parser.add_argument('--complex', required=False, action='store_true', default=False)
     parser.add_argument('--one-level', required=False, action='store_true', default=False)
     parser.add_argument('--rich', required=False, action='store_true', default=False)
@@ -759,7 +759,7 @@ def print_schema(args, schema, indent=0):
                 print(f"{' ' * ((indent+1)*4)}{k2} (case) ({len(m)} member(s))")
                 print_schema(args, m.items(), indent=indent + 2)
         elif isinstance(t, Leaf):
-            if args.leaves:
+            if args.leafs:
                 print(f"{' ' * (indent*4)}{k} (leaf) ({t.datatype[0]})")
 
 
@@ -803,9 +803,9 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
                 # TODO: Find equivalent for print_levels(schema, kp)
     if ctx is None:
         ctx = ComplexContext()
-        cnt = count_leaves(args, schema, ctx)
+        cnt = count_leafs(args, schema, ctx)
         if not args.rich:
-            print(f"/ leaves: {cnt}")
+            print(f"/ leafs: {cnt}")
         else:
             table.add_row(kp2str(schema.get_kp), '', f'{cnt}')
     for k, t in schema:
@@ -819,10 +819,10 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
             if not args.one_level:
                 print_schema_complexity(args, t, indent=indent, table=table, ctx=ctx)
         elif isinstance(t, List):
-            cnt = count_leaves(args, t, ctx)
+            cnt = count_leafs(args, t, ctx)
             keys = ','.join(t.key_leafs)
             if not args.rich:
-                print(f"{' ' * (indent * 4)}{k} (list: {keys}) leaves: {cnt}")
+                print(f"{' ' * (indent * 4)}{k} (list: {keys}) leafs: {cnt}")
             else:
                 kp = kp2str(t.get_kp2level(), starting_slash=False)
                 table.add_row(f"{' ' * (indent * 4)}{kp}", f'{keys}', f'{cnt}')
@@ -837,9 +837,9 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
                 table.add_row(f"{' ' * (indent * 4)}{kp} (choice)", '', '')
             for k2 in t.choices.keys():
                 m = t[k2]
-                cnt = count_leaves(args, m.items(), ctx)
+                cnt = count_leafs(args, m.items(), ctx)
                 if not args.rich:
-                    print(f"{' ' * ((indent+1) * 4)}{k2} (case) ({len(m)} member(s)) leaves: {cnt}")
+                    print(f"{' ' * ((indent+1) * 4)}{k2} (case) ({len(m)} member(s)) leafs: {cnt}")
                 else:
                     table.add_row(f"{' ' * ((indent+1) * 4)}{k2} (case)", '', f'{cnt}')
                 print_schema_complexity(args, m.items(), indent=indent + 2, table=table, ctx=ctx)
@@ -851,11 +851,11 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
         return ctx
 
 
-def count_leaves(args, ch, ctx):
+def count_leafs(args, ch, ctx):
     cnt = 0
     for k, t in ch:
         if isinstance(t, Container):
-            cnt += count_leaves(args, t, ctx)
+            cnt += count_leafs(args, t, ctx)
         elif isinstance(t, Leaf):
             cnt += 1
     return cnt
@@ -933,8 +933,8 @@ def print_gen_desc(args, schema, indent=0, root=True):
             # print(f"{' ' * (indent * 4)}{k} (choice)")
             # for k in t.choices.keys():
             #   m = t[k]
-            #   cnt = count_leaves(args, m.items(), ctx)
-            #   print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s)) leaves: {cnt}")
+            #   cnt = count_leafs(args, m.items(), ctx)
+            #   print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s)) leafs: {cnt}")
             #   print_schema_complexity(args, m.items(), indent=indent + 2)
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
@@ -987,7 +987,7 @@ def main(args):
             table = Table()
             table.add_column("List", justify="left", no_wrap=True)
             table.add_column("Keys", justify="left", no_wrap=True)
-            table.add_column("No leaves", justify="right", no_wrap=True)
+            table.add_column("No leafs", justify="right", no_wrap=True)
         else:
             table = None
         ctx = print_schema_complexity(args, schema, table=table)
