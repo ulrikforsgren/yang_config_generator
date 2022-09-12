@@ -20,7 +20,7 @@ def prettify(elem):
 
 
 # TODO: List of things to do
-#  - How shold leafrefs be handled?
+#  - How should leafrefs be handled?
 #    Get a value if exists/create if not?
 #    Create anyway if non-strict ...
 #  - Handle uniqueness of list keys
@@ -56,7 +56,7 @@ def parseargs(args):
 
 def kp2str(kp, starting_slash=True):
     def mod_colon_name(e):
-        m,n = e
+        m, n = e
         if m is not None:
             return f'{m}:{n}'
         return n
@@ -114,6 +114,7 @@ class Node:
         if wm is not None:
             self.when, self.must = wm
 
+    @property
     def get_kp(self):
         kp = []
         node = self
@@ -155,8 +156,8 @@ class HasChildren:
         m = None
         n = p
         if ':' in p:
-            m,n = p.split(':')
-        return self.find((m,n))
+            m, n = p.split(':')
+        return self.find((m, n))
 
 
 class Container(Node, HasChildren):
@@ -227,8 +228,10 @@ class Schema(HasChildren):
                 return m_name
         return None
 
+    @property
     def get_kp(self):
         return []
+
 
 def load_schema(schema, node, children=None, parent=None):
     children = children if children is not None else node.children
@@ -245,15 +248,15 @@ def load_schema(schema, node, children=None, parent=None):
         elif t == 'list':
             nn = List(parent, k, r[0], m, wm=wm)
             load_schema(dt, nn)
-            for c, v in nn.children.items():
+            for c, v2 in nn.children.items():
                 if c not in nn.key_leafs:
-                    nn.nk_children[c] = v
+                    nn.nk_children[c] = v2
         elif t == 'choice':
             nn = Choice(parent, k, wm=wm)
-            for case, v in dt.items():
+            for case, v2 in dt.items():
                 c = {}
                 nn.choices[case] = c
-                load_schema(v, nn, parent=parent, children=c)
+                load_schema(v2, nn, parent=parent, children=c)
         elif t == 'leaf':
             nn = Leaf(parent, k, dt, m, wm=wm)
         elif t == 'leaf-list':
@@ -318,7 +321,8 @@ def eth_generator(_datatype):
 
 def permit_expr_generator(_datatype):
     """
-  ((internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))*
+  ((internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local-AS)|(no-advertise)|
+  (no-export)|(\\d+:\\d+)|(\\d+))*
     """
     # TODO: Create function from the regexp above...
     return 'internet'
@@ -330,7 +334,8 @@ def permit_generator(_datatype):
 
 def acl_generator(_datatype):
     return rstr.xeger(
-        "(permit [a-z ]{5,15})|(deny [a-z ]{5,15})|(remark [a-z ]{5,15})|([0-9]+)|(dynamic [a-z ]{5,15})|(evaluate [a-z ]{5,15})")
+        "(permit [a-z ]{5,15})|(deny [a-z ]{5,15})|(remark [a-z ]{5,15})|([0-9]+)|(dynamic [a-z ]{5,15})|"
+        "(evaluate [a-z ]{5,15})")
 
 
 def acl2_generator(_datatype):
@@ -379,8 +384,10 @@ keypath_generators = compile_keypath_generators({
 })
 
 pattern_generators = {
-    "((internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))*": permit_expr_generator,
-    "((internet)|(local\\-AS)|(no\\-advertise)|(no\\-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local\\-AS)|(no\\-advertise)|(no\\-export)|(\\d+:\\d+)|(\\d+))*": permit_expr_generator,
+    "((internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local-AS)|(no-advertise)|"
+    "(no-export)|(\\d+:\\d+)|(\\d+))*": permit_expr_generator,
+    "((internet)|(local\\-AS)|(no\\-advertise)|(no\\-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local\\-AS)|"
+    "(no\\-advertise)|(no\\-export)|(\\d+:\\d+)|(\\d+))*": permit_expr_generator,
     "(permit.*)|(deny.*)|(remark.*)": permit_generator,
     "[a-fA-F0-9].*": hex_generator,
     "(permit .*)|(deny .*)|(remark .*)|([0-9]+.*)|(dynamic .*)|(evaluate .*)": acl_generator,
@@ -403,13 +410,15 @@ def generate_random_data(datatype, schema, module, node):
     identities = schema.json['identities']
     typedefs = schema.json['typedefs']
     dt, r = datatype
-    v = None
+
     if dt == 'union':
         # Select one random datatype in the union
         dt, r = random.choice(r)
 
     g = datatype_generators.get(dt)
-    if g: return g(datatype)
+    if g:
+        return g(datatype)
+
     if dt == 'empty':
         return None
     elif dt == 'string':
@@ -446,7 +455,6 @@ def generate_random_data(datatype, schema, module, node):
             if x == 100:
                 print(pattern)
                 print(lmin, lmax)
-                X
         v = escape(v)
         v = v.replace(chr(11), "")
         v = v.replace(chr(12), "")
@@ -463,7 +471,8 @@ def generate_random_data(datatype, schema, module, node):
             r = random.choice(r)
             mi, mx, *step = r
             step = step[0] if step else 1
-            if mx is None: mx = mi
+            if mx is None:
+                mx = mi
         if mi == 'min':
             mi = ilimits[dt][0]
         elif mi == 'max':
@@ -483,11 +492,11 @@ def generate_random_data(datatype, schema, module, node):
             mi = r[0] * 10 ** fd
             ma = r[1] * 10 ** fd
             n = str(random.randint(mi, ma))
-        l = len(n)
-        if fd + 1 - l > 0:
-            n = "0" * (fd + 1 - l) + n  # Prepend with zeros if shorter that fraction digits
-            l += fd + 1 - l
-        return n[:l - fd] + '.' + n[-fd:]
+        nl = len(n)
+        if fd + 1 - nl > 0:
+            n = "0" * (fd + 1 - nl) + n  # Prepend with zeros if shorter that fraction digits
+            nl += fd + 1 - nl
+        return n[:nl - fd] + '.' + n[-fd:]
     elif dt == 'typedef':
         g = datatype_generators.get(r)
         if g:
@@ -498,7 +507,8 @@ def generate_random_data(datatype, schema, module, node):
         # TODO: leafref must point to an existing leaf
         path = r.split('/')
         # TODO: handle paths with paths inside [ ]
-        # ex: "/oc-if:interfaces/oc-if:interface[oc-if:name=current()/../interface]/oc-if:subinterfaces/oc-if:subinterface/oc-if:index"
+        # ex: "/oc-if:interfaces/oc-if:interface[oc-if:name=current()/../interface]/oc-if:subinterfaces/
+        # oc-if:subinterface/oc-if:index"
         # TODO: Create function that tracks the datatype that the leafref points to.
         #       Needs to keep track of the current module when traversing back in the hierarchy
         if path[0] == '..':
@@ -509,8 +519,8 @@ def generate_random_data(datatype, schema, module, node):
         left_module_ns = False
         for m in path:
             if m == '..':
-                if n.module is not None: left_module_ns = True  # How to handle multiple exits and up/downs?
-                                                                # Should probably not happen.
+                if n.module is not None:
+                    left_module_ns = True  # How to handle multiple exits and up/downs? Should probably not happen.
                 n = n.parent
             else:
                 if ':' in m:
@@ -525,10 +535,10 @@ def generate_random_data(datatype, schema, module, node):
                     n = n.children[m]
                 except KeyError as e:
                     print(f"ERROR: Failed to find leafref {r}", file=sys.stderr)
-                    print(node.get_kp(), module, file=sys.stderr)
-                    print(n.get_kp(), file=sys.stderr)
+                    print(node.get_kp, module, file=sys.stderr)
+                    print(n.get_kp, file=sys.stderr)
                     raise e
-        kp = n.get_kp()
+        kp = n.get_kp
         # TODO: Handle generator for a specific leaf
         if isinstance(n.parent, List) and n.name in n.parent.key_leafs:
             g = keypath_generators.get(kp[:-1])
@@ -587,7 +597,6 @@ def create_list_entry(schema, doc, ch, tp, ctx):
 
 
 def add_levels(schema, doc, kp, ctx):
-    indent = 0
     ch = schema
     tp = tuple()
     for p in kp:
@@ -630,7 +639,8 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             m, k = k.split(':')
         tp = ctx.path + (k,)
         # Fix namespace support for verbose when path supports namespaces
-        if args.verbose: print(f'Processing {kp2str(t.get_kp())}')
+        if args.verbose:
+            print(f'Processing {kp2str(t.get_kp)}')
         if isinstance(t, Container):
             e = ET.SubElement(doc, k)
             if t.module:
@@ -661,6 +671,7 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
                 e.set('xmlns', ns)
         else:
             raise Exception(f"Unhandled type {type(t)}")
+
 
 def output_default():
     return '''\
@@ -708,6 +719,7 @@ def prepare_output(args):
 
     return doc, xmlroot
 
+
 ###########################################################################
 #  Print model hierarchy
 ###########################################################################
@@ -725,7 +737,7 @@ def print_schema(args, schema, indent=0):
         ch = schema
     for k, t in ch:
         if args.verbose:
-            print(f'Processing {kp2str(t.get_kp())}')
+            print(f'Processing {kp2str(t.get_kp)}')
         if isinstance(t, Container):
             print(f"{' ' * (indent * 4)}{t.name} ", end='')
             if t.presence:
@@ -742,13 +754,13 @@ def print_schema(args, schema, indent=0):
         elif isinstance(t, Choice):
             # Only print container or list choices
             print(f"{' ' * (indent * 4)}{k} (choice)")
-            for k in t.choices.keys():
-                m = t[k]
-                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
+            for k2 in t.choices.keys():
+                m = t[k2]
+                print(f"{' ' * ((indent+1)*4)}{k2} (case) ({len(m)} member(s))")
                 print_schema(args, m.items(), indent=indent + 2)
         elif isinstance(t, Leaf):
             if args.leaves:
-                print(f"{' ' * ((indent) * 4)}{k} (leaf) ({t.datatype[0]})")
+                print(f"{' ' * (indent*4)}{k} (leaf) ({t.datatype[0]})")
 
 
 def print_levels(schema, kp):
@@ -787,18 +799,18 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
                 print(f"Path {args.path} not found")
                 sys.exit(1)
             else:
-                #TODO: Find equivalent for print_levels(schema, kp)
                 indent = len(kp)
+                # TODO: Find equivalent for print_levels(schema, kp)
     if ctx is None:
         ctx = ComplexContext()
         cnt = count_leaves(args, schema, ctx)
         if not args.rich:
             print(f"/ leaves: {cnt}")
         else:
-            table.add_row(kp2str(schema.get_kp()), '', f'{cnt}')
+            table.add_row(kp2str(schema.get_kp), '', f'{cnt}')
     for k, t in schema:
         if args.verbose:
-            print(f'Processing {kp2str(t.get_kp())}')
+            print(f'Processing {kp2str(t.get_kp)}')
         if t.when:
             ctx.whens.append(t)
         if t.must:
@@ -823,14 +835,14 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
             else:
                 kp = kp2str(t.get_kp2level(), starting_slash=False)
                 table.add_row(f"{' ' * (indent * 4)}{kp} (choice)", '', '')
-            for k in t.choices.keys():
-                m = t[k]
+            for k2 in t.choices.keys():
+                m = t[k2]
                 cnt = count_leaves(args, m.items(), ctx)
                 if not args.rich:
-                    print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s)) leaves: {cnt}")
+                    print(f"{' ' * ((indent+1) * 4)}{k2} (case) ({len(m)} member(s)) leaves: {cnt}")
                 else:
-                    table.add_row(f"{' ' * ((indent+1) * 4)}{k} (case)", '', f'{cnt}')
-                print_schema_complexity(args, m.items(), indent=indent + 2,table=table, ctx=ctx)
+                    table.add_row(f"{' ' * ((indent+1) * 4)}{k2} (case)", '', f'{cnt}')
+                print_schema_complexity(args, m.items(), indent=indent + 2, table=table, ctx=ctx)
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
             if dt in ['leafref', 'ns-leafref']:
@@ -888,8 +900,8 @@ def print_gen_desc(args, schema, indent=0, root=True):
                 print(f"Path {args.path} not found")
                 sys.exit(1)
             else:
-                #TODO: Find equivalent for print_levels(schema, kp)
                 indent = len(kp)
+                # TODO: Find equivalent for print_levels(schema, kp)
     if root:
         print('generator_descriptor = {')
     n = 0
@@ -899,7 +911,7 @@ def print_gen_desc(args, schema, indent=0, root=True):
             print(',')
         pn = n
         if args.verbose:
-            print(f'Processing {kp2str(t.get_kp())}')
+            print(f'Processing {kp2str(t.get_kp)}')
         if t.when:
             pass
         if t.must:
@@ -918,9 +930,9 @@ def print_gen_desc(args, schema, indent=0, root=True):
         elif isinstance(t, Choice):
             pass
             # Only print container or list choices
-            #print(f"{' ' * (indent * 4)}{k} (choice)")
-            #for k in t.choices.keys():
-            ##    m = t[k]
+            # print(f"{' ' * (indent * 4)}{k} (choice)")
+            # for k in t.choices.keys():
+            #   m = t[k]
             #   cnt = count_leaves(args, m.items(), ctx)
             #   print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s)) leaves: {cnt}")
             #   print_schema_complexity(args, m.items(), indent=indent + 2)
@@ -958,10 +970,10 @@ def iterate_descriptor(args, schema, desc):
             else:
                 print("X")
 
+
 #############################################################################################################
 #  Main
 #############################################################################################################
-
 def main(args):
     json_schema = json.loads(open(args.module).read())
     schema = Schema(json_schema)
@@ -992,9 +1004,9 @@ def main(args):
             for lf in ctx.leafrefs:
                 dt, path = lf.datatype
                 if dt == 'leafref':
-                    lf_table.add_row(kp2str(lf.get_kp()), path)
+                    lf_table.add_row(kp2str(lf.get_kp), path)
                 else:
-                  nslf_table.add_row(kp2str(lf.get_kp()), path)
+                    nslf_table.add_row(kp2str(lf.get_kp), path)
             console.print(nslf_table)
             print()
             console.print(lf_table)
@@ -1003,13 +1015,13 @@ def main(args):
             w_table.add_column("When", justify="left", no_wrap=True)
             w_table.add_column("Xpath", justify="left", no_wrap=True)
             for w in ctx.whens:
-                w_table.add_row(kp2str(w.get_kp()), w.when)
+                w_table.add_row(kp2str(w.get_kp), w.when)
             console.print(w_table)
             m_table = Table()
             m_table.add_column("Must", justify="left", no_wrap=True)
             m_table.add_column("Xpath", justify="left", no_wrap=True)
             for m in ctx.musts:
-                m_table.add_row(kp2str(m.get_kp()), m.must)
+                m_table.add_row(kp2str(m.get_kp), m.must)
             print()
             console.print(m_table)
     elif args.desc:
@@ -1022,7 +1034,6 @@ def main(args):
         mymodule = importlib.util.module_from_spec(spec)
         loader.exec_module(mymodule)
         iterate_descriptor(args, schema, mymodule.generator_descriptor)
-
 
     else:
         doc, xmlroot = prepare_output(args)
