@@ -104,8 +104,7 @@ def find_kp(ch, kp):
 
 
 class Node:
-    def __init__(self, parent, name, module=None, wm=None, **kw):
-        super().__init__(**kw)
+    def __init__(self, parent, name, module=None, wm=None):
         self.parent = parent
         self.name = name
         self.module = module
@@ -133,8 +132,7 @@ class Node:
 
 
 class HasChildren:
-    def __init__(self, **kw):
-        super().__init__(**kw)
+    def __init__(self):
         self.children = {}
 
     def __iter__(self):
@@ -154,8 +152,10 @@ class HasChildren:
 
 
 class Container(Node, HasChildren):
-    def __init__(self, parent, name, module=None, wm=None):
-        super().__init__(parent, name, module, wm)
+    def __init__(self, parent, name, module=None, presence=False, wm=None):
+        Node.__init__(self, parent, name, module, wm)
+        HasChildren.__init__(self)
+        self.presence = presence
 
 
 class Choice(Node):
@@ -188,7 +188,8 @@ class Choice(Node):
 
 class List(Node, HasChildren):
     def __init__(self, parent, name, key_leafs, module=None, wm=None):
-        super().__init__(parent, name, module, wm)
+        Node.__init__(self, parent, name, module, wm)
+        HasChildren.__init__(self)
         self.key_leafs = [kl[1] for kl in key_leafs]
         self.nk_children = {}  # Non key children
 
@@ -204,8 +205,8 @@ class LeafList(Leaf):
 
 
 class Schema(HasChildren):
-    def __init__(self, schema=None, **kw):
-        super().__init__(**kw)
+    def __init__(self, schema=None):
+        super().__init__()
         self.json = schema
         if schema is not None:
             load_schema(schema['tree'], self)
