@@ -48,14 +48,9 @@ Creates a descriptor file from the schema. Currently only with containers and li
 
 ### Run the descriptor file
 
+This currently only show that it is possible to iterate of the descriptor, but produces no config.
+
 ```./generate_config.py -m router.json --iterdesc```
-
-
-    Choose between strategies (example of ideas:
-      One instance per list
-      All leaves
-      Percent of leaves
-      Create leafref instances
 
 
 ## Priorities ##
