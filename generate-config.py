@@ -231,8 +231,8 @@ def load_schema(schema, node, children=None, parent=None):
         if ':' in k:
             m, k = k.split(':')
         t, wm, dt, *r = v
-        if t == 'container':
-            nn = Container(parent, k, m, wm=wm)
+        if t in ['container', 'p-container']:
+            nn = Container(parent, k, module=m, presence=t == 'p-container', wm=wm)
             load_schema(dt, nn)
         elif t == 'list':
             nn = List(parent, k, r[0], m, wm=wm)
@@ -700,25 +700,6 @@ def prepare_output(args):
 
     return doc, xmlroot
 
-def print_levels(schema, kp):
-    indent = 0
-    ch = schema
-    for p in kp:
-        ch = ch.find(p)
-        if isinstance(ch, Container):
-            print(f"{' ' * (indent * 4)}{ch.name} (container)")
-        elif isinstance(ch, List):
-            keys = ','.join(ch.key_leafs)
-            print(f"{' ' * (indent * 4)}{ch.name} (list: {keys})")
-        elif isinstance(ch, Choice):
-            # Only print container or list choices
-            print(f"{' ' * (indent * 4)}{ch.name} (choice)")
-            for k in ch.choices.keys():
-                m = t[k]
-                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
-        indent += 1
-
-
 ###########################################################################
 #  Print model hierarchy
 ###########################################################################
@@ -738,7 +719,11 @@ def print_schema(args, schema, indent=0):
         if args.verbose:
             print(f'Processing {kp2str(t.get_kp())}')
         if isinstance(t, Container):
-            print(f"{' ' * (indent * 4)}{k} (container)")
+            print(f"{' ' * (indent * 4)}{t.name} ", end='')
+            if t.presence:
+                print('(p-container)')
+            else:
+                print('(container)')
             if not args.one_level:
                 print_schema(args, t, indent=indent + 1)
         elif isinstance(t, List):
@@ -756,6 +741,29 @@ def print_schema(args, schema, indent=0):
         elif isinstance(t, Leaf):
             if args.leaves:
                 print(f"{' ' * ((indent) * 4)}{k} (leaf) ({t.datatype[0]})")
+
+
+def print_levels(schema, kp):
+    indent = 0
+    ch = schema
+    for p in kp:
+        ch = ch.find(p)
+        if isinstance(ch, Container):
+            print(f"{' ' * (indent * 4)}{ch.name} ", end='')
+            if ch.presence:
+                print('(p-container)')
+            else:
+                print('(container)')
+        elif isinstance(ch, List):
+            keys = ','.join(ch.key_leafs)
+            print(f"{' ' * (indent * 4)}{ch.name} (list: {keys})")
+        elif isinstance(ch, Choice):
+            # Only print container or list choices
+            print(f"{' ' * (indent * 4)}{ch.name} (choice)")
+            for k in ch.choices.keys():
+                m = t[k]
+                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
+        indent += 1
 
 
 ###########################################################################

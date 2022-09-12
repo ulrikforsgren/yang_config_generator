@@ -169,6 +169,9 @@ class PModPlugin(plugin.PyangPlugin):
             must = must.arg if must is not None else ''
             ndata = [ch.keyword, (when, must)]
             if ch.keyword == "container":
+                st = ch.search_one("presence")
+                if st is not None and st.arg == 'true':
+                    ndata[0] = 'p-container'  # Mark as presence container
                 ndata.append({})
                 self.process_children(ch, ndata[2], nmod)
             elif ch.keyword == "list":
