@@ -903,7 +903,6 @@ def print_gen_desc(args, schema, indent=0, root=True):
                 print(f"Path {args.path} not found")
                 sys.exit(1)
             else:
-                indent = len(kp)
                 print_desc_levels(schema, kp)
                 indent = len(kp)
     n = 0
@@ -976,6 +975,8 @@ def print_desc_levels(schema, kp):
 #  Print generator descriptor
 ###########################################################################
 # TODO:
+#  * Handle choices
+# QUESTIONS:
 #  * How to handle invalid entries: stop-on-error, warning-on-error?
 #  * Ideas for strategies for how to iterate
 #    - Visit only nodes in descriptor.
@@ -1009,6 +1010,7 @@ def iterate_descriptor(args, schema, desc):
                     process_leaf(args, n, desc[leaf])
             process_members(args, schema, desc, processed)
     elif isinstance(schema, Container):
+        # TODO: How should containers be processed: part of the leafs or separately
         print("Processing container", schema.name)
         if schema.presence:
             pass  # Handle presence container
@@ -1025,6 +1027,7 @@ def process_members(args, schema, desc, processed):
         if k.startswith('__'):
             pass  # Processing directives alread handled
         elif k not in processed:
+            # TODO: Handle mandatory leafs
             processed.append(k)
             n = schema.find_path(k)
             if isinstance(v, dict):
@@ -1033,7 +1036,7 @@ def process_members(args, schema, desc, processed):
                 process_leaf(args, n, v)
 
 
-def process_leaf(args, schema, desc):
+def process_leaf(_args, schema, desc):
     assert (isinstance(schema, Leaf))
     if callable(desc):  # Only valid for leafs
         value = desc(schema)
@@ -1042,7 +1045,7 @@ def process_leaf(args, schema, desc):
     print(f"{schema.name} set to {value}")
 
 
-def process_leaf_default(args, schema):
+def process_leaf_default(_args, schema):
     assert (isinstance(schema, Leaf))
     print("Setting leaf", schema.name, 'to default generated value')
 
