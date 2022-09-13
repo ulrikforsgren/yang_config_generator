@@ -1237,7 +1237,7 @@ def iterate_descriptor(args, schema, doc, desc):
                 processed.append(leaf)
                 n = schema.find_path(leaf)
                 if leaf not in desc.keys():
-                    values.append(process_leaf_default(args, schema, n))
+                    values.append(process_leaf_default(args, n))
                 else:
                     values.append(process_leaf(args, n, desc[leaf]))
             le = doc.add_list_entry(schema.name, schema.module, schema.key_leafs, values)
@@ -1257,7 +1257,7 @@ def iterate_descriptor(args, schema, doc, desc):
 def process_members(args, schema, doc, desc, processed):
     for k, v in desc.items():
         if k.startswith('__'):
-            pass  # Processing directives alread handled
+            pass  # Processing directives already handled
         elif k not in processed:
             processed.append(k)
             n = schema.find_path(k)
@@ -1275,7 +1275,7 @@ def process_leaf(_args, schema, desc):
         value = desc
     return value
 
-def process_leaf_default(_args, doc, schema):
+def process_leaf_default(_args, schema):
     assert (isinstance(schema, Leaf))
     return "default"
 
