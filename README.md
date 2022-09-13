@@ -38,27 +38,32 @@ Create a fast loading schema file in json format for the selected YANG modules.
 Shows the complexity of the schema. This toolset is intended to help in the decision-making how to
 generate the configuration. This is useful for both to be used with a descriptor file and without.
 
-```./generate_config.py -m router.json --complex --rich```
+```./generate_config.py -m router.json complex```
 
 ### Generate descriptor file
 
 Creates a descriptor file from the schema. Currently only with containers and lists with the key leafs names.
 
-```./generate_config.py -m router.json --desc > desc.py```
+```./generate_config.py -m router.json gendesc > desc.py```
 
 ### Run the descriptor file
 
 This currently only show that it is possible to iterate of the descriptor, but produces no config.
 
-```./generate_config.py -m router.json --iterdesc```
+```./generate_config.py -m router.json rundesc desc.py```
 
 
 ## Priorities ##
+* Generate XML output for command 'rundesc'
 * Create initial test framework to secure an expected output.
-* Split options to commands with their specific options. 
-* Add context object for iter_descriptor.
+* Support choice for command 'rundesc'
+* Generate random values for leafs for command 'rundesc'
+* Handle mandatory leafs
 
-
+## Unprioritized
+* Handle list key uniqueness
+* Simple handling of generator functions
+* Simple handling of variables and Python generators
 
 ## Contents ##
 * pmod.py
@@ -80,14 +85,11 @@ This currently only show that it is possible to iterate of the descriptor, but p
     * when statements not handled.
     * Altered/complemented restrictions of user defined datatypes (typedefs) are
     not collected properly. Fortunately not very common...
-* create_xml.py:
+* generate_config.py:
     * Unicode patterns used in some ieft string datatypes i.e \p{L} is replaced with a more restrictive pattern [a-zA-Z).
     * Unicode patterns used in some ieft string datatypes i.e \p{N} is replaced with a more restrictive pattern [0-9).
     * .* and .+ (dot) pattern is replaced with [a-z0-9]{0/1,15} to restrict the strings to be created.
     * Number of list entries created is hardcoded to 1
-* Generic
-    * Module prefixes are not handled in a unified way. It is present on to elements
-      and some datatypes.
 
 ## Generator functions ##
 To futher control creation and mitigate arised issues a possibility to use functions
