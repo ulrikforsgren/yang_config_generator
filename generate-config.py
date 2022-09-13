@@ -593,6 +593,48 @@ def generate_random_data(datatype, schema, module, node):
 def pick_identity(identities, r):
     return r if len(identities[r]) == 0 else random.choice(identities[r])
 
+#############################################################################################################
+#  Output backends
+#############################################################################################################
+class OutputBackend:
+    def __init__(self, schema):
+        self.schema = schema
+
+    def add_container(self, name, module):
+        return "container node"
+    def add_list_entry(self, name, module, keys, values):
+        return "list entry"
+
+    def add_leaf(self, name, module, value):
+        pass
+
+class XMLBackend(OutputBackend):
+    def __init__(self, schema, doc):
+        super().__init__(schema)
+        self.doc = doc
+
+    def add_container(self, name, module):
+        e = ET.SubElement(self.doc, name)
+        if module:
+            ns = get_ns(module, self.schema.json)
+            e.set('xmlns', ns)
+        return XMLBackend(self.schema, e)
+
+    def add_list_entry(self, name, module, key_leafs, values):
+        e = ET.SubElement(self.doc, name)
+        if module:
+            ns = get_ns(module, self.schema.json)
+            e.set('xmlns', ns)
+            for key, value in zip(key_leafs, values):
+                ET.SubElement(e, key).text = value
+        return XMLBackend(self.schema, e)
+    def add_leaf(self, name, module, value):
+        e = ET.SubElement(self.doc, name)
+        e.text = value
+        if module:
+            ns = get_ns(module, self.schema.json)
+            e.set('xmlns', ns)
+
 
 #############################################################################################################
 #  Create config by iterating schema model
@@ -624,7 +666,8 @@ def cmd_genconfig(args, schema):
     Show the JSON schema tree.
     """
     doc, xmlroot = prepare_output(args)
-    iter_schema(args, schema, xmlroot)
+    outputroot = XMLBackend(schema, xmlroot)
+    iter_schema(args, schema, outputroot)
 
     output_file = open(args.output, 'w') if args.output else sys.stdout
     output_file.write(prettify(doc))
@@ -638,23 +681,22 @@ class IterContext:
 
 
 def create_list_entry(schema, doc, ch, tp, ctx):
-    e = ET.SubElement(doc, ch.name)
     if ch.module:
         ctx.module = ch.module
-        ns = get_ns(ch.module, schema.json)
-        e.set('xmlns', ns)
     g = keypath_generators.get(tp)
+    values = []
     if g:
         if not hasattr(g, '__iter__'):
             g = [g]
         for ln, klg in zip(ch.key_leafs, g):
             kl = ch.children[ln]
-            ET.SubElement(e, ln).text = klg(kl.datatype)
+            values.append(klg(kl.datatype))
     else:
         for ln in ch.key_leafs:
             kl = ch.children[ln]
-            ET.SubElement(e, ln).text = generate_random_data(kl.datatype, schema, ctx.module, kl)
-    return e
+            values.append(generate_random_data(kl.datatype, schema, ctx.module, kl))
+    return doc.add_list_entry(ch.name, ch.module, ch.key_leafs, values)
+
 
 
 def add_levels(schema, doc, kp, ctx):
@@ -664,11 +706,9 @@ def add_levels(schema, doc, kp, ctx):
         tp += (p,)
         ch = ch.find(p)
         if isinstance(ch, Container):
-            e = ET.SubElement(doc, ch.name)
+            e = doc.add_container(ch.name, ch.module)
             if ch.module:
                 ctx.module = ch.module
-                ns = get_ns(ch.module, schema.json)
-                e.set('xmlns', ns)
             doc = e
         elif isinstance(ch, List):
             # Create a random number of list elements between 0 and 5
@@ -703,11 +743,9 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
         if args.verbose:
             print(f'Processing {kp2str(t.get_kp)}')
         if isinstance(t, Container):
-            e = ET.SubElement(doc, k)
+            e = doc.add_container(k, t.module)
             if t.module:
                 ctx.module = t.module
-                ns = get_ns(t.module, schema.json)
-                e.set('xmlns', ns)
             iter_schema(args, schema, e, ctx, t)
         elif isinstance(t, List):
             # Create a random number of list elements between 0 and 5
@@ -720,16 +758,12 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             m = t[random.choice(list(t.choices.keys()))]
             iter_schema(args, schema, doc, ctx, m.items())
         elif isinstance(t, Leaf):
-            e = ET.SubElement(doc, k)
             g = keypath_generators.get(tp)
             if g:
                 v = g(t.datatype)
             else:
                 v = generate_random_data(t.datatype, schema, ctx.module, t)
-            e.text = v
-            if t.module:
-                ns = get_ns(t.module, schema.json)
-                e.set('xmlns', ns)
+            doc.add_leaf(k, t.module, v)
         else:
             raise Exception(f"Unhandled type {type(t)}")
 
