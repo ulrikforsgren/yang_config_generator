@@ -892,21 +892,23 @@ class ComplexContext:
 #
 
 def print_gen_desc(args, schema, indent=0, root=True):
+    if root:
+        print('generator_descriptor = {')
+    ch = schema
     if indent == 0:
         if args.path:
             kp = str2kp(args.path)
-            schema = find_kp(schema, kp)
-            if schema is None:
+            ch = find_kp(ch, kp)
+            if ch is None:
                 print(f"Path {args.path} not found")
                 sys.exit(1)
             else:
                 indent = len(kp)
-                # TODO: Find equivalent for print_levels(schema, kp)
-    if root:
-        print('generator_descriptor = {')
+                print_desc_levels(schema, kp)
+                indent = len(kp)
     n = 0
     pn = 0
-    for k, t in schema:
+    for k, t in ch:
         if pn != n:
             print(',')
         pn = n
@@ -942,7 +944,32 @@ def print_gen_desc(args, schema, indent=0, root=True):
                 pass
     print()
     if root:
+        while indent>0:
+            print(f"{' ' * (indent*4)}}}")
+            indent -= 1
         print('}')
+
+
+def print_desc_levels(schema, kp):
+    indent = 0
+    ch = schema
+    for p in kp:
+        ch = ch.find(p)
+        if isinstance(ch, Container):
+            print(f"{' ' * ((indent+1) * 4)}\"{ch.name}\": {{")
+            if ch.presence:
+                print('  # (p-container)')
+        elif isinstance(ch, List):
+            keys = ','.join(ch.key_leafs)
+            print(f"{' ' * ((indent+1) * 4)}\"{ch.name}\": {{  # {keys}")
+        elif isinstance(ch, Choice):
+            # TODO: Handle choice
+            pass
+#            print(f"{' ' * (indent * 4)}{ch.name} (choice)")
+#            for k in ch.choices.keys():
+#                m = ch[k]
+#                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")                print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s))")
+        indent += 1
 
 
 ###########################################################################
