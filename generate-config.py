@@ -75,10 +75,6 @@ def mutex(arguments, **kwargs):
     return 'm', arguments, kwargs
 
 
-####################################################################
-#  Subcommands
-####################################################################
-
 def subcommand(arguments=[], help='', parent=subparsers):
     if not hasattr(parent, 'cmds'): parent.cmds = []
 
@@ -130,6 +126,9 @@ def str2kp(path):
     return kp
 
 
+#############################################################################################################
+# Schema
+#############################################################################################################
 # TODO: Handle namespaces/prefixes in a generic way. I.e. inherit the level above is not specified.
 # TODO: Handle choices (currently broken)
 def find_path(schema, path, kp=None):
@@ -151,6 +150,10 @@ def find_kp(ch, kp):
         if ch is None:
             return None
     return ch
+
+
+def get_ns(m, schema):
+    return schema['modules'][m][1]
 
 
 class Node:
@@ -316,6 +319,9 @@ def load_schema(schema, node, children=None, parent=None):
             children[mk] = nn
 
 
+#############################################################################################################
+# Helper function for generating random config
+#############################################################################################################
 def compile_keypath_generators(d):
     g = {}
     for k, v in d.items():
@@ -611,19 +617,9 @@ def pick_identity(identities, r):
     return r if len(identities[r]) == 0 else random.choice(identities[r])
 
 
-def get_ns(m, schema):
-    return schema['modules'][m][1]
-
-
-class IterContext:
-    def __init__(self):
-        self.path = tuple()
-        self.module = None
-
-
-###########################################################################
+#############################################################################################################
 #  Create config by iterating schema model
-###########################################################################
+#############################################################################################################
 @subcommand([
     argument('-f', '--format',
         choices=['default', 'tailf-config', 'nso-device'],
@@ -656,6 +652,12 @@ def cmd_genconfig(args, schema):
     output_file = open(args.output, 'w') if args.output else sys.stdout
     output_file.write(prettify(doc))
     exit(0)
+
+
+class IterContext:
+    def __init__(self):
+        self.path = tuple()
+        self.module = None
 
 
 def create_list_entry(schema, doc, ch, tp, ctx):
@@ -888,9 +890,11 @@ def print_levels(schema, kp):
         indent += 1
 
 
-###########################################################################
+#############################################################################################################
 #  Print schema model complexity
-###################ƒ#######################################################
+#############################################################################################################
+# TODO:
+#  * Print note if leafref/when/must references outside --path.
 @subcommand([
     argument("-1", "--one-level",
              action="store_true",
@@ -1012,9 +1016,9 @@ class ComplexContext:
         self.musts = []
 
 
-###########################################################################
+#############################################################################################################
 #  Generate a config generator descriptor
-###########################################################################
+#############################################################################################################
 # Approaches to generator a descriptor:
 #  - Include every list and container
 #  - Include only lists
@@ -1034,6 +1038,14 @@ class ComplexContext:
 #   - Default is implicit?
 #   - Explicit specification
 #
+# TODO:
+#  * Add option for list/container and list strategies.
+#  * Add option for including choice meta nodes (if possible to exclude)
+#  * Add option for adding __NO_INSTANCES on lists and presence containers.
+#  * Add option for including key leafs.
+#  * Add option for including leafrefs.
+#  * Add option for including when/must comments
+#  *  - Comment if it references outside --path
 @subcommand(
     help="generate config descriptor"
 )
@@ -1127,12 +1139,24 @@ def print_desc_levels(schema, kp):
         indent += 1
 
 
-###########################################################################
+#############################################################################################################
 #  Run config generator descriptor
-###########################################################################
+#############################################################################################################
 # TODO:
-#  * Handle choices
-# QUESTIONS:
+#  * Output to xml.
+#  * Use generate_random_data to set leaf values.
+#  * Handle choices.
+#  * Handle list key uniqueness.
+#  * Override datatype generators (list/dict/...?)
+#  * Add support for Python generator functions. Useful for sequences.
+#  * Add support for variables (same as/close to Python generator functions?)
+#
+# IDEAS:
+#  * __SKIP: List of paths to skip.
+#  * __SKIP_THIS: True/False
+#  * Option for strategies for unspecified leafs
+#  * Option how to iterate container and leafs: separate/togehter
+#  * Option which unspecified leafs to set: all/percent/random
 #  * How to handle invalid entries: stop-on-error, warning-on-error?
 #  * Ideas for strategies for how to iterate
 #    - Visit only nodes in descriptor.
@@ -1235,6 +1259,7 @@ def process_leaf_default(_args, schema):
 #  Main
 #############################################################################################################
 def main():
+    global parser, subparsers
     set_epilog(parser, subparsers)
     args = parser.parse_args(sys.argv[1:])
 
