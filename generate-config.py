@@ -955,20 +955,69 @@ def print_gen_desc(args, schema, indent=0, root=True):
 #    - Visit all nodes specified by --path, alter with descriptor.
 #    - ...
 def iterate_descriptor(args, schema, desc):
+    __no_instances = 1 # Used by lists
+    # Process any processing directives starting with double underscore.
     for k, v in desc.items():
         if k.startswith('__'):
             if k == '__NO_INSTANCES':
-                pass
+                if isinstance(schema, List):
+                    __no_instances = v
+                else:
+                    print("ERROR: __NO_INSTAMCES only valid for list nodes:", schema.name, str(type(schema)))
+                    sys.exit(1)
+    if isinstance(schema, List):
+        if callable(__no_instances):
+            noi = __no_instances(schema)
         else:
+            noi = __no_instances
+        for _ in range(0, noi):
+            print("Creating list entry:", schema.name)
+            processed = []  # List of processed nodes
+            for leaf in schema.key_leafs:
+                processed.append(leaf)
+                n = schema.find_path(leaf)
+                if leaf not in desc.keys():
+                    process_leaf_default(args, n)
+                else:
+                    process_leaf(args, n, desc[leaf])
+            process_members(args, schema, desc, processed)
+    elif isinstance(schema, Container):
+        print("Processing container", schema.name)
+        if schema.presence:
+            pass  # Handle presence container
+        process_members(args, schema, desc, [])
+    elif isinstance(schema, Schema):
+        process_members(args, schema, desc, [])
+    else:
+        print("ERROR: Invalid node", str(type(schema)), desc)
+        sys.exit(1)
+
+
+def process_members(args, schema, desc, processed):
+    for k, v in desc.items():
+        if k.startswith('__'):
+            pass  # Processing directives alread handled
+        elif k not in processed:
+            processed.append(k)
             n = schema.find_path(k)
-            print(n)
             if isinstance(v, dict):
                 iterate_descriptor(args, n, v)
-            elif callable(v):
-                value = v(n)
-                print(f"{n.name} set to {value}")
             else:
-                print("X")
+                process_leaf(args, n, v)
+
+
+def process_leaf(args, schema, desc):
+    assert (isinstance(schema, Leaf))
+    if callable(desc):  # Only valid for leafs
+        value = desc(schema)
+    else:
+        value = desc
+    print(f"{schema.name} set to {value}")
+
+
+def process_leaf_default(args, schema):
+    assert (isinstance(schema, Leaf))
+    print("Setting leaf", schema.name, 'to default generated value')
 
 
 #############################################################################################################
