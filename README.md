@@ -56,7 +56,7 @@ This currently only show that it is possible to iterate of the descriptor, but p
 ## Priorities ##
 * Create initial test framework to secure an expected output.
 * Split options to commands with their specific options. 
-* Add context opject for 
+* Add context object for iter_descriptor.
 
 
 

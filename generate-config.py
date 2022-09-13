@@ -19,19 +19,6 @@ def prettify(elem):
     return reparsed.toprettyxml(indent="  ")
 
 
-# TODO: List of things to do
-#  - How should leafrefs be handled?
-#    Get a value if exists/create if not?
-#    Create anyway if non-strict ...
-#  - Handle uniqueness of list keys
-#  - Refactor generate_random_data to take only node as input.
-#  - Should there be a default generator for each native type?
-#    To gets rid of the if mess...
-#    Easier to override types?!
-#  - Regexp like matching to create generator for arbitrary part of the model?
-#  - Handle min-elements/max-elements.
-
-
 ####################################################################
 #  Argument Parser
 ####################################################################
@@ -55,7 +42,8 @@ def create_parser():
     return p, p.add_subparsers(dest="subcommand")
 
 
-def set_epilog(parser, subparsers):
+def set_epilog():
+    global parser, subparsers
     l = [(f"{n} {s}",h) for n,s,h in subparsers.cmds]
     maxl = max(len(s) for s,_ in l)
     import textwrap
@@ -75,25 +63,26 @@ def mutex(arguments, **kwargs):
     return 'm', arguments, kwargs
 
 
-def subcommand(arguments=[], help='', parent=subparsers):
+def subcommand(arguments=None, help='', parent=subparsers):
+    arguments = arguments or []
     if not hasattr(parent, 'cmds'): parent.cmds = []
 
     def decorator(func):
         name = func.__name__[4:]
-        parser = parent.add_parser(name, description=func.__doc__)
+        p = parent.add_parser(name, description=func.__doc__)
         for t, args, kwargs in arguments:
             if t == 'a':
-                parser.add_argument(*args, **kwargs)
+                p.add_argument(*args, **kwargs)
             elif t == 'm':
-                g = parser.add_mutually_exclusive_group(**kwargs)
+                g = p.add_mutually_exclusive_group(**kwargs)
                 for _, a, kw in args:
                     g.add_argument(*a, **kw)
-        parser.set_defaults(func=func)
+        p.set_defaults(func=func)
 
         def strip_prefix(s):
-            return s[len(parser.prog) + 8:].rstrip()
+            return s[len(p.prog) + 8:].rstrip()
 
-        parent.cmds.append((name, strip_prefix(parser.format_usage()),
+        parent.cmds.append((name, strip_prefix(p.format_usage()),
                             help))
 
     return decorator
@@ -129,8 +118,6 @@ def str2kp(path):
 #############################################################################################################
 # Schema
 #############################################################################################################
-# TODO: Handle namespaces/prefixes in a generic way. I.e. inherit the level above is not specified.
-# TODO: Handle choices (currently broken)
 def find_path(schema, path, kp=None):
     # path is assumed to be well formatted, starting with a single /
     kp = kp or str2kp(path)
@@ -479,8 +466,6 @@ def generate_random_data(datatype, schema, module, node):
     elif dt == 'string':
         lengths, patterns = r
         if patterns:
-            # TODO: How to handle multiple patterns?
-            #       Is generators the only option?
             pattern = patterns[0]
         else:
             pattern = "[a-zA-Z0-9 ._]+"
@@ -489,7 +474,6 @@ def generate_random_data(datatype, schema, module, node):
             lmin, lmax = length
             lmax = lmax or lmin
         else:
-            # TODO: What is default length
             lmin, lmax = 1, 255
         v = ""
         x = 0
@@ -559,13 +543,7 @@ def generate_random_data(datatype, schema, module, node):
         else:
             return generate_random_data(typedefs[r], schema, module, node)  # Expand typedef
     elif dt in ['ns-leafref', 'leafref']:
-        # TODO: leafref must point to an existing leaf
         path = r.split('/')
-        # TODO: handle paths with paths inside [ ]
-        # ex: "/oc-if:interfaces/oc-if:interface[oc-if:name=current()/../interface]/oc-if:subinterfaces/
-        # oc-if:subinterface/oc-if:index"
-        # TODO: Create function that tracks the datatype that the leafref points to.
-        #       Needs to keep track of the current module when traversing back in the hierarchy
         if path[0] == '..':
             n = node
         else:
@@ -594,7 +572,6 @@ def generate_random_data(datatype, schema, module, node):
                     print(n.get_kp, file=sys.stderr)
                     raise e
         kp = n.get_kp
-        # TODO: Handle generator for a specific leaf
         if isinstance(n.parent, List) and n.name in n.parent.key_leafs:
             g = keypath_generators.get(kp[:-1])
             if g:
@@ -666,7 +643,6 @@ def create_list_entry(schema, doc, ch, tp, ctx):
         ctx.module = ch.module
         ns = get_ns(ch.module, schema.json)
         e.set('xmlns', ns)
-    # TODO: Handle uniqueness of key
     g = keypath_generators.get(tp)
     if g:
         if not hasattr(g, '__iter__'):
@@ -784,12 +760,12 @@ def output_config():
 
 
 def prepare_output(args):
-    if args.format == 'default':
-        fmt, rn, ns = output_default()
-    elif args.format == 'nso-device':
+    if args.format == 'nso-device':
         fmt, rn, ns = output_nso_device(args.name)
     elif args.format == 'tailf-config':
         fmt, rn, ns = output_config()
+    else:  # default
+        fmt, rn, ns = output_default()
 
     doc = ET.fromstring(fmt)
     if doc.tag == 'xml-root':
@@ -893,8 +869,6 @@ def print_levels(schema, kp):
 #############################################################################################################
 #  Print schema model complexity
 #############################################################################################################
-# TODO:
-#  * Print note if leafref/when/must references outside --path.
 @subcommand([
     argument("-1", "--one-level",
              action="store_true",
@@ -960,7 +934,6 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
                 sys.exit(1)
             else:
                 indent = len(kp)
-                # TODO: Find equivalent for print_levels(schema, kp)
     if ctx is None:
         ctx = ComplexContext()
         cnt = count_leafs(args, schema, ctx)
@@ -1130,7 +1103,6 @@ def print_desc_levels(schema, kp):
             keys = ','.join(ch.key_leafs)
             print(f"{' ' * ((indent+1) * 4)}\"{ch.name}\": {{  # {keys}")
         elif isinstance(ch, Choice):
-            # TODO: Handle choice
             pass
 #            print(f"{' ' * (indent * 4)}{ch.name} (choice)")
 #            for k in ch.choices.keys():
@@ -1177,7 +1149,6 @@ def cmd_rundesc(args, schema):
      - Calls generator functions for list key leafs.
      - List entry create can be controlled with __NO_INSTANCES.
     """
-    # TODO: Check descriptor file existence and print appropriate error message when not found or execution failure.
     import importlib.machinery
     import importlib.util
     loader = importlib.machinery.SourceFileLoader(args.descriptor, args.descriptor)
@@ -1215,7 +1186,6 @@ def iterate_descriptor(args, schema, desc):
                     process_leaf(args, n, desc[leaf])
             process_members(args, schema, desc, processed)
     elif isinstance(schema, Container):
-        # TODO: How should containers be processed: part of the leafs or separately
         print("Processing container", schema.name)
         if schema.presence:
             pass  # Handle presence container
@@ -1232,7 +1202,6 @@ def process_members(args, schema, desc, processed):
         if k.startswith('__'):
             pass  # Processing directives alread handled
         elif k not in processed:
-            # TODO: Handle mandatory leafs
             processed.append(k)
             n = schema.find_path(k)
             if isinstance(v, dict):
@@ -1260,13 +1229,12 @@ def process_leaf_default(_args, schema):
 #############################################################################################################
 def main():
     global parser, subparsers
-    set_epilog(parser, subparsers)
+    set_epilog()
     args = parser.parse_args(sys.argv[1:])
 
     if args.subcommand is None:
         parser.print_help()
     else:
-        # TODO: Check file existence and print appropriate error message when not found.
         json_schema = json.loads(open(args.model).read())
         schema = Schema(json_schema)
         args.func(args, schema)
