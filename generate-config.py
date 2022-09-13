@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import json
 import random
 import sys
@@ -32,26 +32,75 @@ def prettify(elem):
 #  - Handle min-elements/max-elements.
 
 
-def parseargs(args):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--module', type=str, required=True,
-                        help='Compiled YANG module (json)')
-    parser.add_argument('-o', '--output', type=str, required=False,
-                        help='Output file name')
-    parser.add_argument('--hierarchy', required=False, action='store_true', default=False)
-    parser.add_argument('--leafs', required=False, action='store_true', default=False)
-    parser.add_argument('--complex', required=False, action='store_true', default=False)
-    parser.add_argument('--one-level', required=False, action='store_true', default=False)
-    parser.add_argument('--rich', required=False, action='store_true', default=False)
-    parser.add_argument('--desc', required=False, action='store_true', default=False)
-    parser.add_argument('--iterdesc', required=False, type=str, default=False)
-    parser.add_argument('-v', dest='verbose', required=False,
-                        action='store_true', default=False)
-    parser.add_argument('-f', '--format', choices=['default', 'tailf-config', 'nso-device'], default='default')
-    parser.add_argument('-n', '--name', required=False, type=str, default='ce0')
-    parser.add_argument('-p', '--path', type=str, required=False,
-                        help='Start iterating at path')
-    return parser.parse_args(args)
+####################################################################
+#  Argument Parser
+####################################################################
+
+def create_parser():
+    p = ArgumentParser(
+        formatter_class=RawDescriptionHelpFormatter,
+    )
+    p.add_argument("-m", "--model",
+                        action='store',
+                        dest='model',
+                        default='model.json',
+                        help="JSON schema model (default=model.json)")
+    p.add_argument("-p", "--path",
+                        type=str,
+                        help="Select model branch to process")
+    p.add_argument("--verbose",
+                        action='store_true',
+                        default=False,
+                        help="Enable verbose mode")
+    return p, p.add_subparsers(dest="subcommand")
+
+
+def set_epilog(parser, subparsers):
+    l = [(f"{n} {s}",h) for n,s,h in subparsers.cmds]
+    maxl = max(len(s) for s,_ in l)
+    import textwrap
+    parser.epilog = textwrap.dedent(
+        "commands arguments: (-h for details)\n"+
+        "\n".join([f"  {s:<{maxl}}   {h}" for s,h in l]))
+
+
+parser, subparsers = create_parser()
+
+
+def argument(*name_or_flags, **kwargs):
+    return 'a', list(name_or_flags), kwargs
+
+
+def mutex(arguments, **kwargs):
+    return 'm', arguments, kwargs
+
+
+####################################################################
+#  Subcommands
+####################################################################
+
+def subcommand(arguments=[], help='', parent=subparsers):
+    if not hasattr(parent, 'cmds'): parent.cmds = []
+
+    def decorator(func):
+        name = func.__name__[4:]
+        parser = parent.add_parser(name, description=func.__doc__)
+        for t, args, kwargs in arguments:
+            if t == 'a':
+                parser.add_argument(*args, **kwargs)
+            elif t == 'm':
+                g = parser.add_mutually_exclusive_group(**kwargs)
+                for _, a, kw in args:
+                    g.add_argument(*a, **kw)
+        parser.set_defaults(func=func)
+
+        def strip_prefix(s):
+            return s[len(parser.prog) + 8:].rstrip()
+
+        parent.cmds.append((name, strip_prefix(parser.format_usage()),
+                            help))
+
+    return decorator
 
 
 def kp2str(kp, starting_slash=True):
@@ -573,8 +622,42 @@ class IterContext:
 
 
 ###########################################################################
-#  Create config by iterating model
+#  Create config by iterating schema model
 ###########################################################################
+@subcommand([
+    argument('-f', '--format',
+        choices=['default', 'tailf-config', 'nso-device'],
+        default='default',
+        help="config output format"
+    ),
+    argument('-n', '--name',
+        type=str,
+        default='ce0',
+        help="Device name for output format nso-device"
+    ),
+    argument("-o", "--output",
+         type=str,
+         help="File to write generated config to."
+     ),
+
+    argument("-1", "--one-level",
+         action="store_true",
+         help="Show one level"
+     )],
+    help="show model tree"
+)
+def cmd_genconfig(args, schema):
+    """
+    Show the JSON schema tree.
+    """
+    doc, xmlroot = prepare_output(args)
+    iter_schema(args, schema, xmlroot)
+
+    output_file = open(args.output, 'w') if args.output else sys.stdout
+    output_file.write(prettify(doc))
+    exit(0)
+
+
 def create_list_entry(schema, doc, ch, tp, ctx):
     e = ET.SubElement(doc, ch.name)
     if ch.module:
@@ -721,8 +804,27 @@ def prepare_output(args):
 
 
 ###########################################################################
-#  Print model hierarchy
+#  Show model hierarchy tree
 ###########################################################################
+@subcommand([
+    argument("-l", "--leafs",
+        action="store_true",
+        help="Show leafs"
+    ),
+    argument("-1", "--one-level",
+        action="store_true",
+        help="Show one level"
+    )],
+    help="show model tree"
+)
+def cmd_tree(args, schema):
+    """
+    Show the JSON schema tree.
+    """
+    print_schema(args, schema)
+    exit(0)
+
+
 def print_schema(args, schema, indent=0):
     if indent == 0 and args.path:
         kp = str2kp(args.path)
@@ -787,8 +889,62 @@ def print_levels(schema, kp):
 
 
 ###########################################################################
-#  Print schema complexity
-###########################################################################
+#  Print schema model complexity
+###################ƒ#######################################################
+@subcommand([
+    argument("-1", "--one-level",
+             action="store_true",
+             help="Show one level"
+             )],
+    help="model complexity analysis"
+)
+def cmd_complex(args, schema):
+    """
+    Show the schema model complexity in terms of nested lists, choices, leaf concentrations,
+    when/must expressions and leafrefs.
+    """
+    from rich.console import Console
+    from rich.table import Table
+    table = Table()
+    table.add_column("List", justify="left", no_wrap=True)
+    table.add_column("Keys", justify="left", no_wrap=True)
+    table.add_column("No leafs", justify="right", no_wrap=True)
+    ctx = print_schema_complexity(args, schema, table=table)
+    console = Console()
+    console.print(table)
+    print()
+    lf_table = Table()
+    lf_table.add_column("Leafref", justify="left", no_wrap=True)
+    lf_table.add_column("Path", justify="left", no_wrap=True)
+    nslf_table = Table()
+    nslf_table.add_column("Non-strict leafref", justify="left", no_wrap=True)
+    nslf_table.add_column("Path", justify="left", no_wrap=True)
+    for lf in ctx.leafrefs:
+        dt, path = lf.datatype
+        if dt == 'leafref':
+            lf_table.add_row(kp2str(lf.get_kp), path)
+        else:
+            nslf_table.add_row(kp2str(lf.get_kp), path)
+    console.print(nslf_table)
+    print()
+    console.print(lf_table)
+    print()
+    w_table = Table()
+    w_table.add_column("When", justify="left", no_wrap=True)
+    w_table.add_column("Xpath", justify="left", no_wrap=True)
+    for w in ctx.whens:
+        w_table.add_row(kp2str(w.get_kp), w.when)
+    console.print(w_table)
+    m_table = Table()
+    m_table.add_column("Must", justify="left", no_wrap=True)
+    m_table.add_column("Xpath", justify="left", no_wrap=True)
+    for m in ctx.musts:
+        m_table.add_row(kp2str(m.get_kp), m.must)
+    print()
+    console.print(m_table)
+    exit(0)
+
+
 def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
     root = ctx is None
     if indent == 0:
@@ -804,10 +960,7 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
     if ctx is None:
         ctx = ComplexContext()
         cnt = count_leafs(args, schema, ctx)
-        if not args.rich:
-            print(f"/ leafs: {cnt}")
-        else:
-            table.add_row(kp2str(schema.get_kp), '', f'{cnt}')
+        table.add_row(kp2str(schema.get_kp), '', f'{cnt}')
     for k, t in schema:
         if args.verbose:
             print(f'Processing {kp2str(t.get_kp)}')
@@ -821,27 +974,18 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
         elif isinstance(t, List):
             cnt = count_leafs(args, t, ctx)
             keys = ','.join(t.key_leafs)
-            if not args.rich:
-                print(f"{' ' * (indent * 4)}{k} (list: {keys}) leafs: {cnt}")
-            else:
-                kp = kp2str(t.get_kp2level(), starting_slash=False)
-                table.add_row(f"{' ' * (indent * 4)}{kp}", f'{keys}', f'{cnt}')
+            kp = kp2str(t.get_kp2level(), starting_slash=False)
+            table.add_row(f"{' ' * (indent * 4)}{kp}", f'{keys}', f'{cnt}')
             if not args.one_level:
                 print_schema_complexity(args, t, indent=indent + 1, table=table, ctx=ctx)
         elif isinstance(t, Choice):
             # Only print container or list choices
-            if not args.rich:
-                print(f"{' ' * (indent * 4)}{k} (choice)")
-            else:
-                kp = kp2str(t.get_kp2level(), starting_slash=False)
-                table.add_row(f"{' ' * (indent * 4)}{kp} (choice)", '', '')
+            kp = kp2str(t.get_kp2level(), starting_slash=False)
+            table.add_row(f"{' ' * (indent * 4)}{kp} (choice)", '', '')
             for k2 in t.choices.keys():
                 m = t[k2]
                 cnt = count_leafs(args, m.items(), ctx)
-                if not args.rich:
-                    print(f"{' ' * ((indent+1) * 4)}{k2} (case) ({len(m)} member(s)) leafs: {cnt}")
-                else:
-                    table.add_row(f"{' ' * ((indent+1) * 4)}{k2} (case)", '', f'{cnt}')
+                table.add_row(f"{' ' * ((indent+1) * 4)}{k2} (case)", '', f'{cnt}')
                 print_schema_complexity(args, m.items(), indent=indent + 2, table=table, ctx=ctx)
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
@@ -869,7 +1013,7 @@ class ComplexContext:
 
 
 ###########################################################################
-#  Print generator descriptor
+#  Generate a config generator descriptor
 ###########################################################################
 # Approaches to generator a descriptor:
 #  - Include every list and container
@@ -890,6 +1034,18 @@ class ComplexContext:
 #   - Default is implicit?
 #   - Explicit specification
 #
+@subcommand(
+    help="generate config descriptor"
+)
+def cmd_gendesc(args, schema):
+    """
+    Generates a Python config generator descriptor and print on stdout.
+    Currently, it includes:
+     - Lists with key leafs as a comment.
+     - Containers (presence containers are marked with a comment).
+    """
+    print_gen_desc(args, schema)
+
 
 def print_gen_desc(args, schema, indent=0, root=True):
     if root:
@@ -972,7 +1128,7 @@ def print_desc_levels(schema, kp):
 
 
 ###########################################################################
-#  Print generator descriptor
+#  Run config generator descriptor
 ###########################################################################
 # TODO:
 #  * Handle choices
@@ -982,6 +1138,31 @@ def print_desc_levels(schema, kp):
 #    - Visit only nodes in descriptor.
 #    - Visit all nodes specified by --path, alter with descriptor.
 #    - ...
+@subcommand([
+    argument("descriptor",
+             type=str,
+             help="The descriptor file to run"
+    )],
+    help="run config descriptor"
+)
+def cmd_rundesc(args, schema):
+    """
+    Runs a config generator descriptor.
+    Currently, it has the features:
+     - Visits all specified lists and containers.
+     - Calls generator functions for list key leafs.
+     - List entry create can be controlled with __NO_INSTANCES.
+    """
+    # TODO: Check descriptor file existence and print appropriate error message when not found or execution failure.
+    import importlib.machinery
+    import importlib.util
+    loader = importlib.machinery.SourceFileLoader(args.descriptor, args.descriptor)
+    spec = importlib.util.spec_from_loader(args.descriptor, loader)
+    mymodule = importlib.util.module_from_spec(spec)
+    loader.exec_module(mymodule)
+    iterate_descriptor(args, schema, mymodule.generator_descriptor)
+
+
 def iterate_descriptor(args, schema, desc):
     __no_instances = 1 # Used by lists
     # Process any processing directives starting with double underscore.
@@ -1053,74 +1234,18 @@ def process_leaf_default(_args, schema):
 #############################################################################################################
 #  Main
 #############################################################################################################
-def main(args):
-    json_schema = json.loads(open(args.module).read())
-    schema = Schema(json_schema)
+def main():
+    set_epilog(parser, subparsers)
+    args = parser.parse_args(sys.argv[1:])
 
-    if args.hierarchy:
-        print_schema(args, schema)
-    elif args.complex:
-        if args.rich:
-            from rich.console import Console
-            from rich.table import Table
-            table = Table()
-            table.add_column("List", justify="left", no_wrap=True)
-            table.add_column("Keys", justify="left", no_wrap=True)
-            table.add_column("No leafs", justify="right", no_wrap=True)
-        else:
-            table = None
-        ctx = print_schema_complexity(args, schema, table=table)
-        if args.rich:
-            console = Console()
-            console.print(table)
-            print()
-            lf_table = Table()
-            lf_table.add_column("Leafref", justify="left", no_wrap=True)
-            lf_table.add_column("Path", justify="left", no_wrap=True)
-            nslf_table = Table()
-            nslf_table.add_column("Non-strict leafref", justify="left", no_wrap=True)
-            nslf_table.add_column("Path", justify="left", no_wrap=True)
-            for lf in ctx.leafrefs:
-                dt, path = lf.datatype
-                if dt == 'leafref':
-                    lf_table.add_row(kp2str(lf.get_kp), path)
-                else:
-                    nslf_table.add_row(kp2str(lf.get_kp), path)
-            console.print(nslf_table)
-            print()
-            console.print(lf_table)
-            print()
-            w_table = Table()
-            w_table.add_column("When", justify="left", no_wrap=True)
-            w_table.add_column("Xpath", justify="left", no_wrap=True)
-            for w in ctx.whens:
-                w_table.add_row(kp2str(w.get_kp), w.when)
-            console.print(w_table)
-            m_table = Table()
-            m_table.add_column("Must", justify="left", no_wrap=True)
-            m_table.add_column("Xpath", justify="left", no_wrap=True)
-            for m in ctx.musts:
-                m_table.add_row(kp2str(m.get_kp), m.must)
-            print()
-            console.print(m_table)
-    elif args.desc:
-        print_gen_desc(args, schema)
-    elif args.iterdesc:
-        import importlib.machinery
-        import importlib.util
-        loader = importlib.machinery.SourceFileLoader(args.iterdesc, args.iterdesc)
-        spec = importlib.util.spec_from_loader(args.iterdesc, loader)
-        mymodule = importlib.util.module_from_spec(spec)
-        loader.exec_module(mymodule)
-        iterate_descriptor(args, schema, mymodule.generator_descriptor)
-
+    if args.subcommand is None:
+        parser.print_help()
     else:
-        doc, xmlroot = prepare_output(args)
-        iter_schema(args, schema, xmlroot)
-
-        output_file = open(args.output, 'w') if args.output else sys.stdout
-        output_file.write(prettify(doc))
-
+        # TODO: Check file existence and print appropriate error message when not found.
+        json_schema = json.loads(open(args.model).read())
+        schema = Schema(json_schema)
+        args.func(args, schema)
+    sys.exit()
 
 if __name__ == "__main__":
-    main(parseargs(sys.argv[1:]))
+    main()
