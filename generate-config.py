@@ -625,9 +625,11 @@ class XMLBackend(OutputBackend):
         if module:
             ns = get_ns(module, self.schema.json)
             e.set('xmlns', ns)
-            for key, value in zip(key_leafs, values):
-                ET.SubElement(e, key).text = value
-        return XMLBackend(self.schema, e)
+        doc = XMLBackend(self.schema, e)
+        for key, value in zip(key_leafs, values):
+            doc.add_leaf(key, module, value)
+        return doc
+
     def add_leaf(self, name, module, value):
         e = ET.SubElement(self.doc, name)
         e.text = value
@@ -1172,6 +1174,20 @@ def print_desc_levels(schema, kp):
     argument("descriptor",
              type=str,
              help="The descriptor file to run"
+    ),
+    argument('-f', '--format',
+        choices=['default', 'tailf-config', 'nso-device'],
+        default='default',
+        help="config output format"
+    ),
+    argument('-n', '--name',
+        type=str,
+        default='ce0',
+        help="Device name for output format nso-device"
+    ),
+    argument("-o", "--output",
+         type=str,
+         help="File to write generated config to."
     )],
     help="run config descriptor"
 )
@@ -1189,10 +1205,16 @@ def cmd_rundesc(args, schema):
     spec = importlib.util.spec_from_loader(args.descriptor, loader)
     mymodule = importlib.util.module_from_spec(spec)
     loader.exec_module(mymodule)
-    iterate_descriptor(args, schema, mymodule.generator_descriptor)
+
+    doc, xmlroot = prepare_output(args)
+    output = XMLBackend(schema, xmlroot)
+    iterate_descriptor(args, schema, output, mymodule.generator_descriptor)
+
+    output_file = open(args.output, 'w') if args.output else sys.stdout
+    output_file.write(prettify(doc))
 
 
-def iterate_descriptor(args, schema, desc):
+def iterate_descriptor(args, schema, doc, desc):
     __no_instances = 1 # Used by lists
     # Process any processing directives starting with double underscore.
     for k, v in desc.items():
@@ -1209,29 +1231,30 @@ def iterate_descriptor(args, schema, desc):
         else:
             noi = __no_instances
         for _ in range(0, noi):
-            print("Creating list entry:", schema.name)
             processed = []  # List of processed nodes
+            values = []
             for leaf in schema.key_leafs:
                 processed.append(leaf)
                 n = schema.find_path(leaf)
                 if leaf not in desc.keys():
-                    process_leaf_default(args, n)
+                    values.append(process_leaf_default(args, schema, n))
                 else:
-                    process_leaf(args, n, desc[leaf])
-            process_members(args, schema, desc, processed)
+                    values.append(process_leaf(args, n, desc[leaf]))
+            le = doc.add_list_entry(schema.name, schema.module, schema.key_leafs, values)
+            process_members(args, schema, le, desc, processed)
     elif isinstance(schema, Container):
-        print("Processing container", schema.name)
+        e = doc.add_container(schema.name, schema.module)
         if schema.presence:
             pass  # Handle presence container
-        process_members(args, schema, desc, [])
+        process_members(args, schema, e, desc, [])
     elif isinstance(schema, Schema):
-        process_members(args, schema, desc, [])
+        process_members(args, schema, doc, desc, [])
     else:
         print("ERROR: Invalid node", str(type(schema)), desc)
         sys.exit(1)
 
 
-def process_members(args, schema, desc, processed):
+def process_members(args, schema, doc, desc, processed):
     for k, v in desc.items():
         if k.startswith('__'):
             pass  # Processing directives alread handled
@@ -1239,9 +1262,9 @@ def process_members(args, schema, desc, processed):
             processed.append(k)
             n = schema.find_path(k)
             if isinstance(v, dict):
-                iterate_descriptor(args, n, v)
+                iterate_descriptor(args, n, doc, v)
             else:
-                process_leaf(args, n, v)
+                doc.add_leaf(k, None, process_leaf(args, n, v))
 
 
 def process_leaf(_args, schema, desc):
@@ -1250,13 +1273,11 @@ def process_leaf(_args, schema, desc):
         value = desc(schema)
     else:
         value = desc
-    print(f"{schema.name} set to {value}")
+    return value
 
-
-def process_leaf_default(_args, schema):
+def process_leaf_default(_args, doc, schema):
     assert (isinstance(schema, Leaf))
-    print("Setting leaf", schema.name, 'to default generated value')
-
+    return "default"
 
 #############################################################################################################
 #  Main
