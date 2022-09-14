@@ -180,10 +180,10 @@ class HasChildren:
         for k, v in self.children.items():
             yield k, v
 
-    def find(self, p):
+    def find(self, p, find_in_choice=True):
         module, name = p
         for ch in self.children.values():
-            if isinstance(ch, Choice):
+            if find_in_choice and isinstance(ch, Choice):
                 ch = ch.find(p)
                 if ch is not None:
                     return ch
@@ -191,12 +191,12 @@ class HasChildren:
                 return ch
         return None
 
-    def find_path(self, p):
+    def find_path(self, p, find_in_choice=True):
         m = None
         n = p
         if ':' in p:
             m, n = p.split(':')
-        return self.find((m, n))
+        return self.find((m, n), find_in_choice)
 
 
 class Container(Node, HasChildren):
@@ -221,17 +221,24 @@ class Choice(Node):
     def __getitem__(self, n):
         return self.choices[n]
 
-    def find(self, p):
+    def find(self, p, find_in_choice=True):
         module, name = p
         for case in self.choices.values():
             for _, ch in case.items():
                 if isinstance(ch, Choice):
-                    ch = ch.find(p)
+                    ch = ch.find(p, find_in_choice)
                     if ch is not None:
                         return ch
                 elif name == ch.name and (module is None or module == ch.module):
                     return ch
         return None
+
+    def find_path(self, p, find_in_choice=True):
+        m = None
+        n = p
+        if ':' in p:
+            m, n = p.split(':')
+        return self.find((m, n), find_in_choice)
 
 
 class List(Node, HasChildren):
@@ -1028,33 +1035,11 @@ class ComplexContext:
 #############################################################################################################
 #  Generate a config generator descriptor
 #############################################################################################################
-# Approaches to generator a descriptor:
-#  - Include every list and container
-#  - Include only lists
+# Approaches to generate a descriptor:
+#  - Include every list, container and choice
+#  - No specification of number of list elements.
+#  - No leafs are specified.
 #
-# Options:
-#  - Add default generators for key leafs (no specified --> use default generator)
-#  - Add all leafs
-#
-# Options to add comments for:
-#  - List keys
-#  - Leafrefs
-#  - Must statements
-#  - When statements
-#
-# Questions:
-#  - How to handle choices?
-#   - Default is implicit?
-#   - Explicit specification
-#
-# TODO:
-#  * Add option for list/container and list strategies.
-#  * Add option for including choice meta nodes (if possible to exclude)
-#  * Add option for adding __NO_INSTANCES on lists and presence containers.
-#  * Add option for including key leafs.
-#  * Add option for including leafrefs.
-#  * Add option for including when/must comments
-#  *  - Comment if it references outside --path
 @subcommand(
     help="generate config descriptor"
 )
@@ -1085,9 +1070,6 @@ def print_gen_desc(args, schema, indent=0, root=True):
     n = 0
     pn = 0
     for k, t in ch:
-        if pn != n:
-            print(',')
-        pn = n
         if args.verbose:
             print(f'Processing {kp2str(t.get_kp)}')
         if t.when:
@@ -1095,30 +1077,52 @@ def print_gen_desc(args, schema, indent=0, root=True):
         if t.must:
             pass
         if isinstance(t, Container):
+            if pn != n:
+                print(',')
+                pn = n
             n += 1
-            print(f"{' ' * ((indent+1) * 4)}\"{k}\": {{")
+            print(f"{' ' * ((indent+1) * 4)}\"{k}\": {{", end='')
+            if not t.presence:
+                print()
+            else:
+                print("  # (p-container)")
             print_gen_desc(args, t, indent=indent+1, root=False)
             print(f"{' ' * ((indent+1) * 4)}}}", end='')
         elif isinstance(t, List):
+            if pn != n:
+                print(',')
+                pn = n
             n += 1
             keys = ','.join(t.key_leafs)
             print(f"{' ' * ((indent+1) * 4)}\"{k}\": {{  # {keys}")
             print_gen_desc(args, t, indent=indent+1, root=False)
             print(f"{' ' * ((indent+1) * 4)}}}", end='')
         elif isinstance(t, Choice):
-            pass
-            # Only print container or list choices
-            # print(f"{' ' * (indent * 4)}{k} (choice)")
-            # for k in t.choices.keys():
-            #   m = t[k]
-            #   cnt = count_leafs(args, m.items(), ctx)
-            #   print(f"{' ' * ((indent+1) * 4)}{k} (case) ({len(m)} member(s)) leafs: {cnt}")
-            #   print_schema_complexity(args, m.items(), indent=indent + 2)
+            if pn != n:
+                print(',')
+                pn = n
+            n += 1
+            print(f"{' ' * ((indent+1) * 4)}\"{k}\": {{  # (choice)")
+            n2 = 0
+            pn2 = 0
+            for k in t.choices.keys():
+                if pn2 != n2:
+                    print(',')
+                    pn2 = n2
+                n2 += 1
+                m = t[k]
+                print(f"{' ' * ((indent+2) * 4)}\"{k}\": {{  # (case)")
+                print_gen_desc(args, m.items(), indent=indent + 2, root=False)
+                print(f"{' ' * ((indent+2) * 4)}}}", end='')
+            if n2:
+                print()
+            print(f"{' ' * ((indent + 1) * 4)}}}", end='')
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
             if dt in ['leafref', 'ns-leafref']:
                 pass
-    print()
+    if n:
+        print()
     if root:
         while indent>0:
             print(f"{' ' * (indent*4)}}}")
@@ -1151,17 +1155,16 @@ def print_desc_levels(schema, kp):
 #  Run config generator descriptor
 #############################################################################################################
 # TODO:
-#  * Output to xml.
-#  * Use generate_random_data to set leaf values.
 #  * Handle choices.
 #  * Handle list key uniqueness.
 #  * Override datatype generators (list/dict/...?)
 #  * Add support for Python generator functions. Useful for sequences.
+#    - Control when they are initiated/resetted
 #  * Add support for variables (same as/close to Python generator functions?)
 #
 # IDEAS:
-#  * __SKIP: List of paths to skip.
 #  * __SKIP_THIS: True/False
+#  * Support function/generators for __SKIP control directive.
 #  * Option for strategies for unspecified leafs
 #  * Option how to iterate container and leafs: separate/togehter
 #  * Option which unspecified leafs to set: all/percent/random
@@ -1169,6 +1172,7 @@ def print_desc_levels(schema, kp):
 #  * Ideas for strategies for how to iterate
 #    - Visit only nodes in descriptor.
 #    - Visit all nodes specified by --path, alter with descriptor.
+#    - Specify leafs witout or with containers: "name", "ntp/server/name"? Focus on lists.
 #    - ...
 @subcommand([
     argument("descriptor",
@@ -1208,76 +1212,114 @@ def cmd_rundesc(args, schema):
 
     doc, xmlroot = prepare_output(args)
     output = XMLBackend(schema, xmlroot)
-    iterate_descriptor(args, schema, output, mymodule.generator_descriptor)
+    iterate_descriptor(args, schema, schema, output, mymodule.generator_descriptor)
 
     output_file = open(args.output, 'w') if args.output else sys.stdout
     output_file.write(prettify(doc))
 
 
-def iterate_descriptor(args, schema, doc, desc):
-    __no_instances = 1 # Used by lists
+def iterate_descriptor(args, schema, s_node, doc, desc):
+    __no_instances = 1 # Used by lists, default is one instance
+    __choose = None # Used by choices, default is random
     # Process any processing directives starting with double underscore.
     for k, v in desc.items():
         if k.startswith('__'):
             if k == '__NO_INSTANCES':
-                if isinstance(schema, List):
+                if isinstance(s_node, List):
                     __no_instances = v
                 else:
-                    print("ERROR: __NO_INSTAMCES only valid for list nodes:", schema.name, str(type(schema)))
+                    print("ERROR: __NO_INSTAMCES only valid for list nodes:", s_node.name, str(type(s_node)))
                     sys.exit(1)
-    if isinstance(schema, List):
-        if callable(__no_instances):
-            noi = __no_instances(schema)
-        else:
-            noi = __no_instances
+            elif k == '__CHOOSE':
+                if isinstance(s_node, Choice):
+                    __choose = v
+                else:
+                    print("ERROR: __NO_INSTAMCES only valid for list nodes:", s_node.name, str(type(s_node)))
+                    sys.exit(1)
+            elif k == '__SKIP' and v == True:
+                return
+    if isinstance(s_node, Schema):
+        process_members(args, schema, s_node, doc, desc, [])
+    elif isinstance(s_node, List):
+        noi = eval_leaf_value(s_node, __no_instances)
         for _ in range(0, noi):
             processed = []  # List of processed nodes
             values = []
-            for leaf in schema.key_leafs:
+            for leaf in s_node.key_leafs:
                 processed.append(leaf)
-                n = schema.find_path(leaf)
+                n = s_node.find_path(leaf)
                 if leaf not in desc.keys():
-                    values.append(process_leaf_default(args, n))
+                    values.append(process_leaf_default(args, schema, n))
                 else:
-                    values.append(process_leaf(args, n, desc[leaf]))
-            le = doc.add_list_entry(schema.name, schema.module, schema.key_leafs, values)
-            process_members(args, schema, le, desc, processed)
-    elif isinstance(schema, Container):
-        e = doc.add_container(schema.name, schema.module)
-        if schema.presence:
+                    values.append(eval_leaf_value(n, desc[leaf]))
+            le = doc.add_list_entry(s_node.name, s_node.module, s_node.key_leafs, values)
+            process_members(args, schema, s_node, le, desc, processed)
+            create_unspecified_leafs(args, schema, s_node, le, desc, processed)
+    elif isinstance(s_node, Container):
+        processed = []
+        e = doc.add_container(s_node.name, s_node.module)
+        if s_node.presence:
             pass  # Handle presence container
-        process_members(args, schema, e, desc, [])
-    elif isinstance(schema, Schema):
-        process_members(args, schema, doc, desc, [])
+
+        process_members(args, schema, s_node, e, desc, processed)
+        create_unspecified_leafs(args, schema, s_node, e, desc, processed)
+    elif isinstance(s_node, Choice):
+        if __choose is None:
+            case = random.choice(list(s_node.choices))
+        else:
+            case = eval_leaf_value(__choice)
+        case_nodes = s_node.choices[case]
+        processed = []
+        process_members(args, schema, s_node, doc, desc[case], processed)
+        create_unspecified_leafs(args, schema, Case(s_node[case]), doc, desc[case], processed)
+
     else:
-        print("ERROR: Invalid node", str(type(schema)), desc)
+        print("ERROR: Invalid node", str(type(s_node)), desc)
         sys.exit(1)
 
 
-def process_members(args, schema, doc, desc, processed):
+# TODO: Incorporate or move this to Schema?
+class Case(HasChildren):
+    def __init__(self, case_children):
+        self.children = case_children
+
+
+def eval_leaf_value(s_node, value):
+    if callable(value):
+        return value(s_node)
+    elif hasattr(value, '__next__'):
+        return value.__next__()
+    elif isinstance(value, tuple):
+        func, *args = value
+        assert(callable(func))
+        return func(*args)
+    else:
+        return value
+def create_unspecified_leafs(args, schema, s_node, doc, desc, processed):
+    for k, v in s_node.children.items():
+        if isinstance(v, Leaf) and k not in desc.keys() and k not in processed:
+            doc.add_leaf(k, None, process_leaf_default(args, schema, v))
+
+
+
+def process_members(args, schema, s_node, doc, desc, processed):
     for k, v in desc.items():
         if k.startswith('__'):
             pass  # Processing directives already handled
         elif k not in processed:
+            # TODO: Improve test with processed
             processed.append(k)
-            n = schema.find_path(k)
+            n = s_node.find_path(k, find_in_choice=False)
             if isinstance(v, dict):
-                iterate_descriptor(args, n, doc, v)
+                iterate_descriptor(args, schema, n, doc, v)
             else:
-                doc.add_leaf(k, None, process_leaf(args, n, v))
+                doc.add_leaf(k, None, eval_leaf_value(n, v))
 
 
-def process_leaf(_args, schema, desc):
-    assert (isinstance(schema, Leaf))
-    if callable(desc):  # Only valid for leafs
-        value = desc(schema)
-    else:
-        value = desc
-    return value
+def process_leaf_default(_args, schema, s_node):
+    assert (isinstance(s_node, Leaf))
+    return generate_random_data(s_node.datatype, schema, s_node.module, s_node)
 
-def process_leaf_default(_args, schema):
-    assert (isinstance(schema, Leaf))
-    return "default"
 
 #############################################################################################################
 #  Main
