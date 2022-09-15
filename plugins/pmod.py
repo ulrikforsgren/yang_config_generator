@@ -304,6 +304,12 @@ class PModPlugin(plugin.PyangPlugin):
             rt = (ts.name, f'{base.i_module.arg}:{arg}')
         elif n == 'binary':
             return None
+        elif n == 'instance-identifier':
+            stmt_ri = t.search_one('require-instance')
+            ri = True
+            if stmt_ri is not None:
+                ri = stmt_ri.arg == 'true'
+            rt = (n, (ri,))
         else:
             raise TypeError(f"Can't handle type: {t.arg} {n}")
         return rt
