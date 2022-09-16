@@ -836,6 +836,10 @@ def prepare_output(args):
     argument("-1", "--one-level",
         action="store_true",
         help="Show one level"
+    ),
+    argument("--hide-choice",
+        action="store_true",
+        help="Hide choices in lists view"
     )],
     help="show model tree"
 )
@@ -877,10 +881,12 @@ def print_schema(args, schema, indent=0):
                 print_schema(args, t, indent=indent + 1)
         elif isinstance(t, Choice):
             # Only print container or list choices
-            print(f"{' ' * (indent * 4)}{k} (choice)")
+            if not args.hide_choice:
+                print(f"{' ' * (indent * 4)}{k} (choice)")
             for k2 in t.choices.keys():
                 m = t[k2]
-                print(f"{' ' * ((indent+1)*4)}{k2} (case) ({len(m)} member(s))")
+                if not args.hide_choice:
+                    print(f"{' ' * ((indent+1)*4)}{k2} (case) ({len(m)} member(s))")
                 print_schema(args, m.items(), indent=indent + 2)
         elif isinstance(t, Leaf):
             if args.leafs:
