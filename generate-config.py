@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sre_parse
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import json
 import random
@@ -930,7 +931,7 @@ def cmd_complex(args, schema):
     table.add_column("List", justify="left", no_wrap=True)
     table.add_column("Keys", justify="left", no_wrap=True)
     table.add_column("No leafs", justify="right", no_wrap=True)
-    ctx = print_schema_complexity(args, schema, table=table)
+    ctx = print_schema_complexity(args, schema, schema, table=table)
     console = Console()
     console.print(table)
     print()
@@ -963,25 +964,41 @@ def cmd_complex(args, schema):
         m_table.add_row(kp2str(m.get_kp), m.must)
     print()
     console.print(m_table)
+    print()
+    p_table = Table()
+    p_table.add_column("Pattern", justify="left", no_wrap=False)
+    p_table.add_column("Count", justify="right", no_wrap=True)
+    p_table.add_column("Min", justify="right", no_wrap=True)
+    p_table.add_column("Max", justify="right", no_wrap=True)
+    for pattern, count in ctx.patterns.items():
+        strpattern = f'"{pattern}"'
+        if pattern:
+            mi, ma = rstr.xeger_minmax(pattern)
+        else:
+            pattern = "(string)"
+            mi = 0
+            ma = sre_parse.MAXREPEAT
+        p_table.add_row(pattern, str(count), str(mi), str(ma))
+    console.print(p_table)
     exit(0)
 
 
-def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
+def print_schema_complexity(args, schema, node, indent=0, table=None, ctx=None):
     root = ctx is None
     if indent == 0:
         if args.path:
             kp = str2kp(args.path)
-            schema = find_kp(schema, kp)
-            if schema is None:
+            node = find_kp(node, kp)
+            if node is None:
                 print(f"Path {args.path} not found")
                 sys.exit(1)
             else:
                 indent = len(kp)
     if ctx is None:
         ctx = ComplexContext()
-        cnt = count_leafs(args, schema, ctx)
-        table.add_row(kp2str(schema.get_kp), '', f'{cnt}')
-    for k, t in schema:
+        cnt = count_leafs(args, node, ctx)
+        table.add_row(kp2str(node.get_kp), '', f'{cnt}')
+    for k, t in node:
         if args.verbose:
             print(f'Processing {kp2str(t.get_kp)}')
         if t.when:
@@ -990,14 +1007,14 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
             ctx.musts.append(t)
         if isinstance(t, Container):
             if not args.one_level:
-                print_schema_complexity(args, t, indent=indent, table=table, ctx=ctx)
+                print_schema_complexity(args, schema, t, indent=indent, table=table, ctx=ctx)
         elif isinstance(t, List):
             cnt = count_leafs(args, t, ctx)
             keys = ','.join(t.key_leafs)
             kp = kp2str(t.get_kp2level(), starting_slash=False)
             table.add_row(f"{' ' * (indent * 4)}{kp}", f'{keys}', f'{cnt}')
             if not args.one_level:
-                print_schema_complexity(args, t, indent=indent + 1, table=table, ctx=ctx)
+                print_schema_complexity(args, schema, t, indent=indent + 1, table=table, ctx=ctx)
         elif isinstance(t, Choice):
             # Only print container or list choices
             kp = kp2str(t.get_kp2level(), starting_slash=False)
@@ -1006,13 +1023,36 @@ def print_schema_complexity(args, schema, indent=0, table=None, ctx=None):
                 m = t[k2]
                 cnt = count_leafs(args, m.items(), ctx)
                 table.add_row(f"{' ' * ((indent+1) * 4)}{k2} (case)", '', f'{cnt}')
-                print_schema_complexity(args, m.items(), indent=indent + 2, table=table, ctx=ctx)
+                print_schema_complexity(args, schema, m.items(), indent=indent + 2, table=table, ctx=ctx)
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
             if dt in ['leafref', 'ns-leafref']:
                 ctx.leafrefs.append(t)
+            collect_patterns(schema, ctx, t.datatype)
     if root:
         return ctx
+
+
+def collect_patterns(schema, ctx, datatype):
+    def inc_pattern(pattern):
+        if not pattern in ctx.patterns:
+            ctx.patterns[pattern] = 1
+        else:
+            ctx.patterns[pattern] += 1
+    typedefs = schema.json['typedefs']
+    dt, r = datatype
+    if dt == 'string':
+        _lengths, patterns = r
+        if patterns:
+            for pattern in patterns:
+                inc_pattern(pattern)
+        else:
+            inc_pattern("")
+    elif dt == 'typedef':
+        collect_patterns(schema, ctx, typedefs[r])
+    elif dt == 'union':
+        for case in r:
+            collect_patterns(schema, ctx, case)
 
 
 def count_leafs(args, ch, ctx):
@@ -1030,6 +1070,7 @@ class ComplexContext:
         self.leafrefs = []
         self.whens = []
         self.musts = []
+        self.patterns = {}
 
 
 #############################################################################################################
