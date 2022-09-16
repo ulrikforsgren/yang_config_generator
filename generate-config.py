@@ -917,6 +917,30 @@ def print_levels(schema, kp):
     argument("-1", "--one-level",
              action="store_true",
              help="Show one level"
+             ),
+    argument("-l", "--lists",
+             action="store_true",
+             help="Show lists"
+             ),
+    argument("-n", "--ns-leafrefs",
+             action="store_true",
+             help="Show non-strict leafrefs"
+             ),
+    argument("-r", "--leafrefs",
+             action="store_true",
+             help="Show leafrefs"
+             ),
+    argument("-w", "--whens",
+             action="store_true",
+             help="Show when statements"
+             ),
+    argument("-m", "--musts",
+             action="store_true",
+             help="Show must statements"
+             ),
+    argument("-p", "--patterns",
+             action="store_true",
+             help="Show patterns"
              )],
     help="model complexity analysis"
 )
@@ -925,6 +949,8 @@ def cmd_complex(args, schema):
     Show the schema model complexity in terms of nested lists, choices, leaf concentrations,
     when/must expressions and leafrefs.
     """
+    if not (args.lists or args.ns_leafrefs or args.leafrefs or args.whens or args.musts or args.patterns):
+        args.lists = args.ns_leafrefs = args.leafrefs = args.whens = args.musts = args.patterns = True
     from rich.console import Console
     from rich.table import Table
     table = Table()
@@ -933,53 +959,57 @@ def cmd_complex(args, schema):
     table.add_column("No leafs", justify="right", no_wrap=True)
     ctx = print_schema_complexity(args, schema, schema, table=table)
     console = Console()
-    console.print(table)
-    print()
-    lf_table = Table()
-    lf_table.add_column("Leafref", justify="left", no_wrap=True)
-    lf_table.add_column("Path", justify="left", no_wrap=True)
-    nslf_table = Table()
-    nslf_table.add_column("Non-strict leafref", justify="left", no_wrap=True)
-    nslf_table.add_column("Path", justify="left", no_wrap=True)
-    for lf in ctx.leafrefs:
-        dt, path = lf.datatype
-        if dt == 'leafref':
-            lf_table.add_row(kp2str(lf.get_kp), path)
-        else:
-            nslf_table.add_row(kp2str(lf.get_kp), path)
-    console.print(nslf_table)
-    print()
-    console.print(lf_table)
-    print()
-    w_table = Table()
-    w_table.add_column("When", justify="left", no_wrap=True)
-    w_table.add_column("Xpath", justify="left", no_wrap=True)
-    for w in ctx.whens:
-        w_table.add_row(kp2str(w.get_kp), w.when)
-    console.print(w_table)
-    m_table = Table()
-    m_table.add_column("Must", justify="left", no_wrap=True)
-    m_table.add_column("Xpath", justify="left", no_wrap=True)
-    for m in ctx.musts:
-        m_table.add_row(kp2str(m.get_kp), m.must)
-    print()
-    console.print(m_table)
-    print()
-    p_table = Table()
-    p_table.add_column("Pattern", justify="left", no_wrap=False)
-    p_table.add_column("Count", justify="right", no_wrap=True)
-    p_table.add_column("Min", justify="right", no_wrap=True)
-    p_table.add_column("Max", justify="right", no_wrap=True)
-    for pattern, count in ctx.patterns.items():
-        strpattern = f'"{pattern}"'
-        if pattern:
-            mi, ma = rstr.xeger_minmax(pattern)
-        else:
-            pattern = "(string)"
-            mi = 0
-            ma = sre_parse.MAXREPEAT
-        p_table.add_row(pattern, str(count), str(mi), str(ma))
-    console.print(p_table)
+    if args.lists:
+        console.print(table)
+    if args.ns_leafrefs:
+        nslf_table = Table()
+        nslf_table.add_column("Non-strict leafref", justify="left", no_wrap=True)
+        nslf_table.add_column("Path", justify="left", no_wrap=True)
+        for lf in ctx.ns_leafrefs:
+            nslf_table.add_row(kp2str(lf.get_kp), lf.datatype[1])
+        print()
+        console.print(nslf_table)
+    if args.leafrefs:
+        lf_table = Table()
+        lf_table.add_column("Leafref", justify="left", no_wrap=True)
+        lf_table.add_column("Path", justify="left", no_wrap=True)
+        for lf in ctx.leafrefs:
+            lf_table.add_row(kp2str(lf.get_kp), lf.datatype[1])
+        print()
+        console.print(lf_table)
+    if args.whens:
+        w_table = Table()
+        w_table.add_column("When", justify="left", no_wrap=True)
+        w_table.add_column("Xpath", justify="left", no_wrap=True)
+        for w in ctx.whens:
+            w_table.add_row(kp2str(w.get_kp), w.when)
+        print()
+        console.print(w_table)
+    if args.musts:
+        m_table = Table()
+        m_table.add_column("Must", justify="left", no_wrap=True)
+        m_table.add_column("Xpath", justify="left", no_wrap=True)
+        for m in ctx.musts:
+            m_table.add_row(kp2str(m.get_kp), m.must)
+        print()
+        console.print(m_table)
+    if args.patterns:
+        p_table = Table()
+        p_table.add_column("Pattern", justify="left", no_wrap=False)
+        p_table.add_column("Count", justify="right", no_wrap=True)
+        p_table.add_column("Min", justify="right", no_wrap=True)
+        p_table.add_column("Max", justify="right", no_wrap=True)
+        for pattern, count in ctx.patterns.items():
+            strpattern = f'"{pattern}"'
+            if pattern:
+                mi, ma = rstr.xeger_minmax(pattern)
+            else:
+                pattern = "(string)"
+                mi = 0
+                ma = sre_parse.MAXREPEAT
+            p_table.add_row(pattern, str(count), str(mi), str(ma))
+        print()
+        console.print(p_table)
     exit(0)
 
 
@@ -1067,6 +1097,7 @@ def count_leafs(args, ch, ctx):
 
 class ComplexContext:
     def __init__(self):
+        self.ns_leafrefs = []
         self.leafrefs = []
         self.whens = []
         self.musts = []
