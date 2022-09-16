@@ -442,6 +442,7 @@ pattern_generators = {
     "[a-fA-F0-9].*": hex_generator,
     "(permit .*)|(deny .*)|(remark .*)|([0-9]+.*)|(dynamic .*)|(evaluate .*)": acl_generator,
     "(permit.*)|(deny.*)|(remark.*)|(dynamic.*)": acl2_generator,
+    "[A-Za-z0-9][^:.]*": string_generator,
 }
 
 ilimits = {
@@ -456,7 +457,7 @@ ilimits = {
 }
 
 
-def generate_random_data(datatype, schema, module, node):
+def generate_random_data(args, datatype, schema, module, node):
     identities = schema.json['identities']
     typedefs = schema.json['typedefs']
     dt, r = datatype
@@ -465,9 +466,10 @@ def generate_random_data(datatype, schema, module, node):
         # Select one random datatype in the union
         dt, r = random.choice(r)
 
-    g = datatype_generators.get(dt)
-    if g:
-        return g(datatype)
+    if not args.use_unaltered_patterns:
+        g = datatype_generators.get(dt)
+        if g:
+            return g(datatype)
 
     if dt == 'empty':
         return None
@@ -476,7 +478,10 @@ def generate_random_data(datatype, schema, module, node):
         if patterns:
             pattern = patterns[0]
         else:
-            pattern = "[a-zA-Z0-9 ._]+"
+            if args.use_unaltered_patterns:
+                pattern = '.*'
+            else:
+                pattern = "[a-zA-Z0-9 ._]+"
         if lengths:
             length = random.choice(lengths)  # Select a random length
             lmin, lmax = length
@@ -485,12 +490,13 @@ def generate_random_data(datatype, schema, module, node):
             lmin, lmax = 1, 255
         v = ""
         x = 0
-        g = pattern_generators.get(pattern)
-        # Avoid generating strings with 'non-readable' or 'invalid' chars.
-        if '.*' in pattern:
-            pattern = pattern.replace('.*', '[a-z0-9]{0,15}')
-        if '.+' in pattern:
-            pattern = pattern.replace('.+', '[a-z0-9]{1,15}')
+        g = pattern_generators.get(pattern) if not args.use_unaltered_patterns else False
+        if args.use_unaltered_patterns:
+            # Avoid generating strings with 'non-readable' or 'invalid' chars.
+            if '.*' in pattern:
+                pattern = pattern.replace('.*', '[a-z0-9]{0,15}')
+            if '.+' in pattern:
+                pattern = pattern.replace('.+', '[a-z0-9]{1,15}')
         while len(v) < lmin:  # Iterate until we get a string that is long enough
             # ps = pattern.split('|')
             # print(ps)
@@ -545,11 +551,11 @@ def generate_random_data(datatype, schema, module, node):
             nl += fd + 1 - nl
         return n[:nl - fd] + '.' + n[-fd:]
     elif dt == 'typedef':
-        g = datatype_generators.get(r)
+        g = datatype_generators.get(r) if not args.use_unaltered_patterns else False
         if g:
             return g(datatype)
         else:
-            return generate_random_data(typedefs[r], schema, module, node)  # Expand typedef
+            return generate_random_data(args, typedefs[r], schema, module, node)  # Expand typedef
     elif dt in ['ns-leafref', 'leafref']:
         path = r.split('/')
         if path[0] == '..':
@@ -581,10 +587,10 @@ def generate_random_data(datatype, schema, module, node):
                     raise e
         kp = n.get_kp
         if isinstance(n.parent, List) and n.name in n.parent.key_leafs:
-            g = keypath_generators.get(kp[:-1])
+            g = keypath_generators.get(kp[:-1]) if not args.use_unaltered_patterns else False
             if g:
                 return g(n.datatype)
-        return generate_random_data(n.datatype, schema, module, n)
+            return generate_random_data(args, n.datatype, schema, module, n)
     elif dt == 'identityref':
         if r in identities:
             return pick_identity(identities, r)
@@ -664,11 +670,14 @@ class XMLBackend(OutputBackend):
          type=str,
          help="File to write generated config to."
      ),
-
     argument("-1", "--one-level",
          action="store_true",
          help="Show one level"
-     )],
+    ),
+    argument("--use-unaltered-patterns",
+         action="store_true",
+         help="Do not alter patterns to generator more natual strings."
+    )],
     help="show model tree"
 )
 def cmd_genconfig(args, schema):
@@ -690,7 +699,7 @@ class IterContext:
         self.module = None
 
 
-def create_list_entry(schema, doc, ch, tp, ctx):
+def create_list_entry(args, schema, doc, ch, tp, ctx):
     if ch.module:
         ctx.module = ch.module
     g = keypath_generators.get(tp)
@@ -704,12 +713,12 @@ def create_list_entry(schema, doc, ch, tp, ctx):
     else:
         for ln in ch.key_leafs:
             kl = ch.children[ln]
-            values.append(generate_random_data(kl.datatype, schema, ctx.module, kl))
+            values.append(generate_random_data(args, kl.datatype, schema, ctx.module, kl))
     return doc.add_list_entry(ch.name, ch.module, ch.key_leafs, values)
 
 
 
-def add_levels(schema, doc, kp, ctx):
+def add_levels(args, schema, doc, kp, ctx):
     ch = schema
     tp = tuple()
     for p in kp:
@@ -725,7 +734,7 @@ def add_levels(schema, doc, kp, ctx):
             n = 1  # random.randint(0, 2)
             if n > 0:
                 for _ in range(0, n):
-                    e = create_list_entry(schema, doc, ch, tp, ctx)
+                    e = create_list_entry(args, schema, doc, ch, tp, ctx)
             doc = e
         else:
             print("ERROR: Type not supported with --path")
@@ -742,7 +751,7 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             if ch is None:
                 print(f"Path {args.path} not found")
                 sys.exit(1)
-            doc = add_levels(schema, doc, kp, ctx)
+            doc = add_levels(args, schema, doc, kp, ctx)
 
     ch = ch or schema
     for k, t in ch:
@@ -762,7 +771,7 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             n = 1  # random.randint(0, 2)
             if n > 0:
                 for _ in range(0, n):
-                    e = create_list_entry(schema, doc, t, tp, ctx)
+                    e = create_list_entry(args, schema, doc, t, tp, ctx)
                     iter_schema(args, schema, e, ctx, t)
         elif isinstance(t, Choice):
             m = t[random.choice(list(t.choices.keys()))]
@@ -772,7 +781,7 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             if g:
                 v = g(t.datatype)
             else:
-                v = generate_random_data(t.datatype, schema, ctx.module, t)
+                v = generate_random_data(args, t.datatype, schema, ctx.module, t)
             doc.add_leaf(k, t.module, v)
         else:
             raise Exception(f"Unhandled type {type(t)}")
@@ -1320,6 +1329,10 @@ def print_desc_levels(schema, kp):
     argument("-o", "--output",
          type=str,
          help="File to write generated config to."
+    ),
+    argument("--use-unaltered-patterns",
+         action="store_true",
+         help="Do not alter patterns to generator more natual strings."
     )],
     help="run config descriptor"
 )
@@ -1447,9 +1460,9 @@ def process_members(args, schema, s_node, doc, desc, processed):
                 doc.add_leaf(k, None, eval_leaf_value(n, v))
 
 
-def process_leaf_default(_args, schema, s_node):
+def process_leaf_default(args, schema, s_node):
     assert (isinstance(s_node, Leaf))
-    return generate_random_data(s_node.datatype, schema, s_node.module, s_node)
+    return generate_random_data(args, s_node.datatype, schema, s_node.module, s_node)
 
 
 #############################################################################################################
