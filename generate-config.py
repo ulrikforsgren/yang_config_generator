@@ -1432,6 +1432,9 @@ def process_members(args, schema, s_node, doc, desc, processed):
             # TODO: Improve test with processed
             processed.append(k)
             n = s_node.find_path(k, find_in_choice=False)
+            if n is None:
+                print(f"ERROR: Node {k} at {kp2str(s_node.get_kp)} not in schema.")
+                sys.exit(0)
             if isinstance(v, dict):
                 iterate_descriptor(args, schema, n, doc, v)
             else:
