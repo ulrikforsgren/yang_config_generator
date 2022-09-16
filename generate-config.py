@@ -922,6 +922,10 @@ def print_levels(schema, kp):
              action="store_true",
              help="Show data using rich tables"
              ),
+    argument("--hide-choice",
+             action="store_true",
+             help="Hide choices in lists view"
+             ),
     argument("-l", "--lists",
              action="store_true",
              help="Show lists"
@@ -1089,12 +1093,14 @@ def print_schema_complexity(args, schema, node, indent=0, ctx=None):
         elif isinstance(t, Choice):
             # Only print container or list choices
             kp = kp2str(t.get_kp2level(), starting_slash=False)
-            ctx.lists.append((indent, f'{kp} (choice)', '', ''))
+            if not args.hide_choice:
+                ctx.lists.append((indent, f'{kp} (choice)', '', ''))
             for k2 in t.choices.keys():
                 m = t[k2]
                 cnt = count_leafs(args, m.items(), ctx)
-                ctx.lists.append((indent+1, f'{kp} (case)', '', cnt))
                 print_schema_complexity(args, schema, m.items(), indent=indent + 2, ctx=ctx)
+                if not args.hide_choice:
+                    ctx.lists.append((indent+1, f'{k2} (case)', '', cnt))
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
             if dt == 'leafref':
