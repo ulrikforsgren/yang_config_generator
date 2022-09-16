@@ -1056,8 +1056,10 @@ def print_schema_complexity(args, schema, node, indent=0, table=None, ctx=None):
                 print_schema_complexity(args, schema, m.items(), indent=indent + 2, table=table, ctx=ctx)
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
-            if dt in ['leafref', 'ns-leafref']:
+            if dt == 'leafref':
                 ctx.leafrefs.append(t)
+            elif dt == 'ns-leafref':
+                ctx.ns_leafrefs.append(t)
             collect_patterns(schema, ctx, t.datatype)
     if root:
         return ctx
