@@ -963,7 +963,7 @@ def cmd_complex(args, schema):
         from rich.console import Console
         from rich.table import Table
         console = Console()
-    ctx = print_schema_complexity(args, schema, schema)
+    ctx = collect_schema_complexity(args, schema, schema)
     if args.lists:
         print()
         if args.rich:
@@ -1058,7 +1058,7 @@ def cmd_complex(args, schema):
     exit(0)
 
 
-def print_schema_complexity(args, schema, node, indent=0, ctx=None):
+def collect_schema_complexity(args, schema, node, indent=0, ctx=None):
     root = ctx is None
     if indent == 0:
         if args.path:
@@ -1082,14 +1082,14 @@ def print_schema_complexity(args, schema, node, indent=0, ctx=None):
             ctx.musts.append(t)
         if isinstance(t, Container):
             if not args.one_level:
-                print_schema_complexity(args, schema, t, indent=indent, ctx=ctx)
+                collect_schema_complexity(args, schema, t, indent=indent, ctx=ctx)
         elif isinstance(t, List):
             cnt = count_leafs(args, t, ctx)
             keys = ','.join(t.key_leafs)
             kp = kp2str(t.get_kp2level(), starting_slash=False)
             ctx.lists.append((indent, kp, keys, cnt))
             if not args.one_level:
-                print_schema_complexity(args, schema, t, indent=indent + 1, ctx=ctx)
+                collect_schema_complexity(args, schema, t, indent=indent + 1, ctx=ctx)
         elif isinstance(t, Choice):
             # Only print container or list choices
             kp = kp2str(t.get_kp2level(), starting_slash=False)
@@ -1098,9 +1098,9 @@ def print_schema_complexity(args, schema, node, indent=0, ctx=None):
             for k2 in t.choices.keys():
                 m = t[k2]
                 cnt = count_leafs(args, m.items(), ctx)
-                print_schema_complexity(args, schema, m.items(), indent=indent + 2, ctx=ctx)
                 if not args.hide_choice:
                     ctx.lists.append((indent+1, f'{k2} (case)', '', cnt))
+                collect_schema_complexity(args, schema, m.items(), indent=indent + 2, ctx=ctx)
         elif isinstance(t, Leaf):
             dt, meta = t.datatype
             if dt == 'leafref':
