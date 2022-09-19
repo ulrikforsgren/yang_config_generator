@@ -317,6 +317,9 @@ def load_schema(schema, node, children=None, parent=None):
 #############################################################################################################
 # Helper function for generating random config
 #############################################################################################################
+
+##### Random functions
+
 def compile_keypath_generators(d):
     g = {}
     for k, v in d.items():
@@ -326,50 +329,50 @@ def compile_keypath_generators(d):
     return g
 
 
-def string_generator(_datatype):
+def random_string(_datatype):
     return rstr.xeger("[a-z][a-z0-9_-]+")
 
 
-def ulrik_generator(_datatype):
+def random_ulrik(_datatype):
     return rstr.xeger("[uU][lL][rR][iI][kK]")
 
 
-def ipv4_generator(_datatype):
+def random_ipv4(_datatype):
     return '{}.{}.{}.{}'.format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255),
                                 random.randint(0, 255))
 
 
-def ipv4_prefix_generator(_datatype):
+def random_ipv4_prefix(_datatype):
     return '{}.{}.{}.{}/{}'.format(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255),
                                    random.randint(0, 255), random.randint(1, 32))
 
 
-def ipv6_generator(_datatype):
+def random_ipv6(_datatype):
     return '{:04X}:{:04X}::{:02X}'.format(random.randint(0, 65535), random.randint(0, 65535), random.randint(0, 255))
 
 
-def ipv6_prefix_generator(_datatype):
+def random_ipv6_prefix(_datatype):
     return '{:04X}:{:04X}::{:02X}/{}'.format(random.randint(0, 65535), random.randint(0, 65535), random.randint(0, 255),
                                              random.randint(0, 127))
 
 
-def rd_generator(_datatype):
+def random_rd(_datatype):
     return '{}:{}'.format(random.randint(0, 65535), random.randint(0, 255))
 
 
-def uint16_generator(_datatype):
+def random_uint16(_datatype):
     return str(random.randint(0, 511))
 
 
-def uint16sub_generator(_datatype):
+def random_uint16sub(_datatype):
     return '{}.{}'.format(random.randint(0, 511), random.randint(0, 128))
 
 
-def eth_generator(_datatype):
+def random_eth(_datatype):
     return '{}/{}'.format(random.randint(0, 66), random.randint(0, 128))
 
 
-def permit_expr_generator(_datatype):
+def random_permit_expr(_datatype):
     """
   ((internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local-AS)|(no-advertise)|
   (no-export)|(\\d+:\\d+)|(\\d+))*
@@ -378,71 +381,73 @@ def permit_expr_generator(_datatype):
     return 'internet'
 
 
-def permit_generator(_datatype):
+def random_permit(_datatype):
     return rstr.xeger("(permit|deny|remark) [a-z ]{5-15}")
 
 
-def acl_generator(_datatype):
+def random_acl(_datatype):
     return rstr.xeger(
         "(permit [a-z ]{5,15})|(deny [a-z ]{5,15})|(remark [a-z ]{5,15})|([0-9]+)|(dynamic [a-z ]{5,15})|"
         "(evaluate [a-z ]{5,15})")
 
 
-def acl2_generator(_datatype):
+def random_acl2(_datatype):
     return rstr.xeger("(permit [a-z ]{5,15})|(deny [a-z ]{5,15})|(remark [a-z ]{5,15})|([0-9]+)|(dynamic [a-z ]{5,15})")
 
 
-def hex_generator(_datatype):
+def random_hex(_datatype):
     return rstr.xeger("[a-fA-F0-9]*")
 
 
-def aaa_name_generator(_datatype):
+def random_aaa_name(_datatype):
     return rstr.xeger("(default)|([a-z_]{5,15})")
 
 
-datatype_generators = {
-    #  'string': string_generator,
-    #  't1': ulrik_generator,
-    'inet:ipv4-address': ipv4_generator,
-    'ios:ipv4-prefix': ipv4_prefix_generator,
-    'inet:host': ipv4_generator,
-    'inet:ipv6-address': ipv6_generator,
-    'ios-ipv6-address': ipv6_generator,
-    'ipv6-prefix': ipv6_prefix_generator,
-    'ios:ipv6-prefix': ipv6_prefix_generator,
-    'rd-type': rd_generator,
-    'asn-ip-type': rd_generator,
-    'aaa-authentication-name-type': aaa_name_generator,
-    'aaa-authorization-name-type': aaa_name_generator,
+##### Mapping tables
+
+random_datatype = {
+    #  'string': random_string,
+    #  't1': random_ulrik,
+    'inet:ipv4-address': random_ipv4,
+    'ios:ipv4-prefix': random_ipv4_prefix,
+    'inet:host': random_ipv4,
+    'inet:ipv6-address': random_ipv6,
+    'ios-ipv6-address': random_ipv6,
+    'ipv6-prefix': random_ipv6_prefix,
+    'ios:ipv6-prefix': random_ipv6_prefix,
+    'rd-type': random_rd,
+    'asn-ip-type': random_rd,
+    'aaa-authentication-name-type': random_aaa_name,
+    'aaa-authorization-name-type': random_aaa_name,
 }
 
-keypath_generators = compile_keypath_generators({
-    '/interface/Port-channel': uint16_generator,
-    '/interface/Port-channel-subinterface/Serial': uint16sub_generator,
-    '/interface/Serial': uint16_generator,
-    '/interface/Serial-subinterface/Serial': uint16sub_generator,
-    '/interface/Cable': uint16_generator,
-    '/interface/Modular-Cable': uint16_generator,
-    '/interface/Wideband-Cable': uint16_generator,
-    '/interface/Cellular': uint16_generator,
-    '/interface/Embedded-Service-Engine': uint16_generator,
-    '/interface/Ethernet': eth_generator,
-    '/interface/FastEthernet': eth_generator,
-    '/interface/TenGigabitEthernet': eth_generator,
-    '/ip/ftp/password/password-container/password': string_generator,
-    '/ip/prefix-list/prefixes': string_generator,
+random_keypath = compile_keypath_generators({
+    '/interface/Port-channel': random_uint16,
+    '/interface/Port-channel-subinterface/Serial': random_uint16sub,
+    '/interface/Serial': random_uint16,
+    '/interface/Serial-subinterface/Serial': random_uint16sub,
+    '/interface/Cable': random_uint16,
+    '/interface/Modular-Cable': random_uint16,
+    '/interface/Wideband-Cable': random_uint16,
+    '/interface/Cellular': random_uint16,
+    '/interface/Embedded-Service-Engine': random_uint16,
+    '/interface/Ethernet': random_eth,
+    '/interface/FastEthernet': random_eth,
+    '/interface/TenGigabitEthernet': random_eth,
+    '/ip/ftp/password/password-container/password': random_string,
+    '/ip/prefix-list/prefixes': random_string,
 })
 
-pattern_generators = {
+random_pattern = {
     "((internet)|(local-AS)|(no-advertise)|(no-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local-AS)|(no-advertise)|"
-    "(no-export)|(\\d+:\\d+)|(\\d+))*": permit_expr_generator,
+    "(no-export)|(\\d+:\\d+)|(\\d+))*": random_permit_expr,
     "((internet)|(local\\-AS)|(no\\-advertise)|(no\\-export)|(\\d+:\\d+)|(\\d+))( (internet)|(local\\-AS)|"
-    "(no\\-advertise)|(no\\-export)|(\\d+:\\d+)|(\\d+))*": permit_expr_generator,
-    "(permit.*)|(deny.*)|(remark.*)": permit_generator,
-    "[a-fA-F0-9].*": hex_generator,
-    "(permit .*)|(deny .*)|(remark .*)|([0-9]+.*)|(dynamic .*)|(evaluate .*)": acl_generator,
-    "(permit.*)|(deny.*)|(remark.*)|(dynamic.*)": acl2_generator,
-    "[A-Za-z0-9][^:.]*": string_generator,
+    "(no\\-advertise)|(no\\-export)|(\\d+:\\d+)|(\\d+))*": random_permit_expr,
+    "(permit.*)|(deny.*)|(remark.*)": random_permit,
+    "[a-fA-F0-9].*": random_hex,
+    "(permit .*)|(deny .*)|(remark .*)|([0-9]+.*)|(dynamic .*)|(evaluate .*)": random_acl,
+    "(permit.*)|(deny.*)|(remark.*)|(dynamic.*)": random_acl2,
+    "[A-Za-z0-9][^:.]*": random_string,
 }
 
 ilimits = {
@@ -457,155 +462,217 @@ ilimits = {
 }
 
 
-def generate_random_data(args, datatype, schema, module, node):
-    identities = schema.json['identities']
-    typedefs = schema.json['typedefs']
+##### Generate random data for datatype
+
+datatype_func = {
+    'uint8': lambda *x: f_random_int(*x),
+    'uint16': lambda *x: f_random_int(*x),
+    'uint32': lambda *x: f_random_int(*x),
+    'uint64': lambda *x: f_random_int(*x),
+    'int8': lambda *x: f_random_int(*x),
+    'int16': lambda *x: f_random_int(*x),
+    'int32': lambda *x: f_random_int(*x),
+    'int64': lambda *x: f_random_int(*x),
+    'string': lambda *x: f_random_string(*x),
+    'boolean': lambda *x: f_random_boolean(*x),
+    'enumeration': lambda *x: f_random_enumeration(*x),
+    'decimal64': lambda *x: f_random_decimal64(*x),
+    'empty': lambda *x: f_random_empty(*x),
+    'identityref': lambda *x: f_random_identityref(*x),
+    'ns-leafref': lambda *x: f_random_leafref(*x, strict=False),
+    'leafref': lambda *x: f_random_leafref(*x),
+    'typedef': lambda *x: f_random_typedef(*x),
+    'union': lambda *x: f_random_union(*x),
+# TODO: Unhandled datatypes
+    'bits': lambda *x: f_random_not_implemented(*x),
+    'binary': lambda *x: f_random_not_implemented(*x),
+    'instance-identifier': lambda *x: f_random_not_implemented(*x)
+}
+
+
+class RandomContext:
+    def __init__(self, args, schema, module, node, datatype):
+        self.args = args
+        self.schema = schema
+        self.module = module
+        self.node = node
+        self.datatype = datatype
+
+
+def f_random_not_implemented(ctx, dt, r):
+    raise NotImplementedError(f"Unhandled datatype: {dt}")
+
+
+def f_random_int(ctx ,dt, r):
+    if not r:
+        mi, mx = ilimits[dt]
+        step = 1
+    else:
+        r = random.choice(r)
+        mi, mx, *step = r
+        step = step[0] if step else 1
+        if mx is None:
+            mx = mi
+    if mi == 'min':
+        mi = ilimits[dt][0]
+    elif mi == 'max':
+        mi = ilimits[dt][1]
+    if mx == 'min':
+        mx = ilimits[dt][0]
+    elif mx == 'max':
+        mx = ilimits[dt][1]
+    return str(random.randrange(mi, mx + 1, step))
+
+
+def f_random_string(ctx ,dt, r):
+    lengths, patterns = r
+    if patterns:
+        pattern = patterns[0]
+    else:
+        if ctx.args.use_unaltered_patterns:
+            pattern = '.*'
+        else:
+            pattern = "[a-zA-Z0-9 ._]+"
+    if lengths:
+        length = random.choice(lengths)  # Select a random length
+        lmin, lmax = length
+        lmax = lmax or lmin
+    else:
+        lmin, lmax = 1, 255
+    v = ""
+    x = 0
+    g = random_pattern.get(pattern) if not ctx.args.use_unaltered_patterns else False
+    if ctx.args.use_unaltered_patterns:
+        # Avoid generating strings with 'non-readable' or 'invalid' chars.
+        if '.*' in pattern:
+            pattern = pattern.replace('.*', '[a-z0-9]{0,15}')
+        if '.+' in pattern:
+            pattern = pattern.replace('.+', '[a-z0-9]{1,15}')
+    while len(v) < lmin:  # Iterate until we get a string that is long enough
+        # ps = pattern.split('|')
+        # print(ps)
+        if g:
+            v = g(ctx.datatype)
+        else:
+            v = rstr.xeger(pattern)
+        x += 1
+        if x == 100:
+            print(pattern)
+            print(lmin, lmax)
+    v = escape(v)
+    v = v.replace(chr(11), "")
+    v = v.replace(chr(12), "")
+    if lmax and len(v) > lmax:
+        return v[:lmax]
+    return v
+
+
+def f_random_boolean(ctx ,dt, r):
+    return random.choice(['false', 'true'])
+
+
+def f_random_enumeration(ctx, dt, r):
+    return random.choice(r)
+
+
+def f_random_decimal64(ctx, dt, r):
+    fd, r = r  # Get fraction digits and optional range
+    if not r:
+        n = str(random.randint(-9223372036854775808, 9223372036854775807))
+    else:
+        mi = r[0] * 10 ** fd
+        ma = r[1] * 10 ** fd
+        n = str(random.randint(mi, ma))
+    nl = len(n)
+    if fd + 1 - nl > 0:
+        n = "0" * (fd + 1 - nl) + n  # Prepend with zeros if shorter that fraction digits
+        nl += fd + 1 - nl
+    return n[:nl - fd] + '.' + n[-fd:]
+
+
+def f_random_empty(ctx, dt, r):
+    return random.choice([None, ''])
+
+
+def f_random_identityref(ctx, dt, r, strict=True):
+    def pick_identity(identities, r):
+        return r if len(identities[r]) == 0 else random.choice(identities[r])
+
+    identities = ctx.schema.json['identities']
+    if r in identities:
+        return pick_identity(identities, r)
+    elif ':' in r:
+        r_no_prefix = r.split(':')[1]
+        if r_no_prefix in identities:
+            return pick_identity(identities, r_no_prefix)
+
+    raise Exception(f"Unknown identity: {r}")
+
+
+def f_random_leafref(ctx, dt, r, strict=True):
+    schema = ctx.schema
+    node = ctx.node
+    path = r.split('/')
+    if path[0] == '..':
+        n = node
+    else:
+        n = schema
+        path = path[1:]
+    left_module_ns = False
+    for m in path:
+        if m == '..':
+            if n.module is not None:
+                left_module_ns = True  # How to handle multiple exits and up/downs? Should probably not happen.
+            n = n.parent
+        else:
+            if ':' in m:
+                prefix, m = m.split(':')
+                m = f'{schema.prefix2module(prefix)}:{m}'
+            else:
+                if left_module_ns:
+                    # How to handle when leaving multiple namespaces?
+                    m = f'{module}:{m}'
+                    left_module_ns = False
+            try:
+                n = n.children[m]
+            except KeyError as e:
+                print(f"ERROR: Failed to find leafref {r}", file=sys.stderr)
+                print(node.get_kp, module, file=sys.stderr)
+                print(n.get_kp, file=sys.stderr)
+                raise e
+    kp = n.get_kp
+    if isinstance(n.parent, List) and n.name in n.parent.key_leafs:
+        g = random_keypath.get(kp[:-1]) if not ctx.args.use_unaltered_patterns else False
+        if g:
+            return g(n.datatype)
+        return generate_random_value(ctx.args, ctx.schema, ctx.module, n, n.datatype)
+
+
+def f_random_typedef(ctx, dt, r):
+    g = random_datatype.get(r) if not ctx.args.use_unaltered_patterns else False
+    if g:
+        return g(datatype)
+    else:
+        typedefs = ctx.schema.json['typedefs']
+        return generate_random_value(ctx.args, ctx.schema, ctx.module, ctx.node, typedefs[r])  # Expand typedef
+
+
+def f_random_union(ctx, dt, r):
+    datatype = random.choice(r)
+    return generate_random_value(ctx.args, ctx.schema, ctx.module, ctx.node, datatype)
+
+
+def generate_random_value(args, schema, module, node, datatype):
     dt, r = datatype
-
-    if dt == 'union':
-        # Select one random datatype in the union
-        dt, r = random.choice(r)
-
     if not args.use_unaltered_patterns:
-        g = datatype_generators.get(dt)
+        g = random_datatype.get(dt)
         if g:
             return g(datatype)
+    try:
+        return datatype_func[dt](RandomContext(args, schema, module, node, datatype), dt, r)
+    except KeyError:
+        f_random_not_implemented(RandomContext(args, schema, module, node, datatype), dt, r)
 
-    if dt == 'empty':
-        return None
-    elif dt == 'string':
-        lengths, patterns = r
-        if patterns:
-            pattern = patterns[0]
-        else:
-            if args.use_unaltered_patterns:
-                pattern = '.*'
-            else:
-                pattern = "[a-zA-Z0-9 ._]+"
-        if lengths:
-            length = random.choice(lengths)  # Select a random length
-            lmin, lmax = length
-            lmax = lmax or lmin
-        else:
-            lmin, lmax = 1, 255
-        v = ""
-        x = 0
-        g = pattern_generators.get(pattern) if not args.use_unaltered_patterns else False
-        if args.use_unaltered_patterns:
-            # Avoid generating strings with 'non-readable' or 'invalid' chars.
-            if '.*' in pattern:
-                pattern = pattern.replace('.*', '[a-z0-9]{0,15}')
-            if '.+' in pattern:
-                pattern = pattern.replace('.+', '[a-z0-9]{1,15}')
-        while len(v) < lmin:  # Iterate until we get a string that is long enough
-            # ps = pattern.split('|')
-            # print(ps)
-            if g:
-                v = g(datatype)
-            else:
-                v = rstr.xeger(pattern)
-            x += 1
-            if x == 100:
-                print(pattern)
-                print(lmin, lmax)
-        v = escape(v)
-        v = v.replace(chr(11), "")
-        v = v.replace(chr(12), "")
-        if lmax and len(v) > lmax:
-            return v[:lmax]
-        return v
-    elif dt == 'boolean':
-        return str(bool(random.randint(0, 1))).lower()
-    elif dt in ['uint8', 'uint16', 'uint32', 'uint64', 'int8', 'int16', 'int32', 'int64']:
-        if not r:
-            mi, mx = ilimits[dt]
-            step = 1
-        else:
-            r = random.choice(r)
-            mi, mx, *step = r
-            step = step[0] if step else 1
-            if mx is None:
-                mx = mi
-        if mi == 'min':
-            mi = ilimits[dt][0]
-        elif mi == 'max':
-            mi = ilimits[dt][1]
-        if mx == 'min':
-            mx = ilimits[dt][0]
-        elif mx == 'max':
-            mx = ilimits[dt][1]
-        return str(random.randrange(mi, mx + 1, step))
-    elif dt == 'enumeration':
-        return random.choice(r)
-    elif dt == 'decimal64':
-        fd, r = r  # Get fraction digits and optional range
-        if not r:
-            n = str(random.randint(-9223372036854775808, 9223372036854775807))
-        else:
-            mi = r[0] * 10 ** fd
-            ma = r[1] * 10 ** fd
-            n = str(random.randint(mi, ma))
-        nl = len(n)
-        if fd + 1 - nl > 0:
-            n = "0" * (fd + 1 - nl) + n  # Prepend with zeros if shorter that fraction digits
-            nl += fd + 1 - nl
-        return n[:nl - fd] + '.' + n[-fd:]
-    elif dt == 'typedef':
-        g = datatype_generators.get(r) if not args.use_unaltered_patterns else False
-        if g:
-            return g(datatype)
-        else:
-            return generate_random_data(args, typedefs[r], schema, module, node)  # Expand typedef
-    elif dt in ['ns-leafref', 'leafref']:
-        path = r.split('/')
-        if path[0] == '..':
-            n = node
-        else:
-            n = schema
-            path = path[1:]
-        left_module_ns = False
-        for m in path:
-            if m == '..':
-                if n.module is not None:
-                    left_module_ns = True  # How to handle multiple exits and up/downs? Should probably not happen.
-                n = n.parent
-            else:
-                if ':' in m:
-                    prefix, m = m.split(':')
-                    m = f'{schema.prefix2module(prefix)}:{m}'
-                else:
-                    if left_module_ns:
-                        # How to handle when leaving multiple namespaces?
-                        m = f'{module}:{m}'
-                        left_module_ns = False
-                try:
-                    n = n.children[m]
-                except KeyError as e:
-                    print(f"ERROR: Failed to find leafref {r}", file=sys.stderr)
-                    print(node.get_kp, module, file=sys.stderr)
-                    print(n.get_kp, file=sys.stderr)
-                    raise e
-        kp = n.get_kp
-        if isinstance(n.parent, List) and n.name in n.parent.key_leafs:
-            g = keypath_generators.get(kp[:-1]) if not args.use_unaltered_patterns else False
-            if g:
-                return g(n.datatype)
-            return generate_random_data(args, n.datatype, schema, module, n)
-    elif dt == 'identityref':
-        if r in identities:
-            return pick_identity(identities, r)
-        elif ':' in r:
-            r_no_prefix = r.split(':')[1]
-            if r_no_prefix in identities:
-                return pick_identity(identities, r_no_prefix)
-
-        raise Exception(f"Unknown identity: {r}")
-
-    raise Exception(f"Unhandled datatype: {dt}")
-
-
-def pick_identity(identities, r):
-    return r if len(identities[r]) == 0 else random.choice(identities[r])
 
 #############################################################################################################
 #  Output backends
@@ -702,7 +769,7 @@ class IterContext:
 def create_list_entry(args, schema, doc, ch, tp, ctx):
     if ch.module:
         ctx.module = ch.module
-    g = keypath_generators.get(tp)
+    g = random_keypath.get(tp)
     values = []
     if g:
         if not hasattr(g, '__iter__'):
@@ -713,7 +780,7 @@ def create_list_entry(args, schema, doc, ch, tp, ctx):
     else:
         for ln in ch.key_leafs:
             kl = ch.children[ln]
-            values.append(generate_random_data(args, kl.datatype, schema, ctx.module, kl))
+            values.append(generate_random_value(args, schema, ctx.module, kl, kl.datatype))
     return doc.add_list_entry(ch.name, ch.module, ch.key_leafs, values)
 
 
@@ -777,11 +844,11 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             m = t[random.choice(list(t.choices.keys()))]
             iter_schema(args, schema, doc, ctx, m.items())
         elif isinstance(t, Leaf):
-            g = keypath_generators.get(tp)
+            g = random_keypath.get(tp)
             if g:
                 v = g(t.datatype)
             else:
-                v = generate_random_data(args, t.datatype, schema, ctx.module, t)
+                v = generate_random_value(args, schema, ctx.module, t, t.datatype)
             doc.add_leaf(k, t.module, v)
         else:
             raise Exception(f"Unhandled type {type(t)}")
@@ -1439,7 +1506,9 @@ def eval_leaf_value(s_node, value):
 def create_unspecified_leafs(args, schema, s_node, doc, desc, processed):
     for k, v in s_node.children.items():
         if isinstance(v, Leaf) and k not in desc.keys() and k not in processed:
-            doc.add_leaf(k, None, process_leaf_default(args, schema, v))
+            value = process_leaf_default(args, schema, v)
+            if value is not None:
+                doc.add_leaf(k, None, value)
 
 
 
@@ -1462,7 +1531,7 @@ def process_members(args, schema, s_node, doc, desc, processed):
 
 def process_leaf_default(args, schema, s_node):
     assert (isinstance(s_node, Leaf))
-    return generate_random_data(args, s_node.datatype, schema, s_node.module, s_node)
+    return generate_random_value(args, schema, s_node.module, s_node, s_node.datatype)
 
 
 #############################################################################################################
