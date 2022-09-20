@@ -843,6 +843,14 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
         elif isinstance(t, Choice):
             m = t[random.choice(list(t.choices.keys()))]
             iter_schema(args, schema, doc, ctx, m.items())
+        elif isinstance(t, LeafList):
+            # Only one element is created
+            g = random_keypath.get(tp)
+            if g:
+                v = g(t.datatype)
+            else:
+                v = generate_random_value(args, schema, ctx.module, t, t.datatype)
+            doc.add_leaf(k, t.module, v)
         elif isinstance(t, Leaf):
             g = random_keypath.get(tp)
             if g:
@@ -964,6 +972,9 @@ def print_schema(args, schema, indent=0):
                 if not args.hide_choice:
                     print(f"{' ' * ((indent+1)*4)}{k2} (case) ({len(m)} member(s))")
                 print_schema(args, m.items(), indent=indent + 2)
+        elif isinstance(t, LeafList):
+            if args.leafs:
+                print(f"{' ' * (indent*4)}{k} (leaf-list) ({t.datatype[0]})")
         elif isinstance(t, Leaf):
             if args.leafs:
                 print(f"{' ' * (indent*4)}{k} (leaf) ({t.datatype[0]})")
@@ -1505,11 +1516,25 @@ def eval_leaf_value(s_node, value):
         return value
 def create_unspecified_leafs(args, schema, s_node, doc, desc, processed):
     for k, v in s_node.children.items():
-        if isinstance(v, Leaf) and k not in desc.keys() and k not in processed:
-            value = process_leaf_default(args, schema, v)
-            if value is not None:
-                doc.add_leaf(k, None, value)
+        if k not in desc.keys() and k not in processed:
+            if isinstance(v, LeafList):
+                #create_leaflist(args, schema, s_node, doc, v)
+                pass
+            elif isinstance(v, Leaf):
+                value = process_leaf_default(args, schema, v)
+                if value is not None:
+                    doc.add_leaf(k, None, value)
 
+
+def create_leaflist(args, schema, s_node, doc, k, inp):
+    if isinstance(inp, list):
+        for value in inp:
+            doc.add_leaf(k, None, value)
+    elif isinstance(inp, tuple):
+        c, v = inp
+        for _ in range(0, eval_leaf_value(s_node, c)):
+            value = eval_leaf_value(s_node, v)
+            doc.add_leaf(k, None, eval_leaf_value(s_node, str(value)))
 
 
 def process_members(args, schema, s_node, doc, desc, processed):
@@ -1526,7 +1551,10 @@ def process_members(args, schema, s_node, doc, desc, processed):
             if isinstance(v, dict):
                 iterate_descriptor(args, schema, n, doc, v)
             else:
-                doc.add_leaf(k, None, eval_leaf_value(n, v))
+                if isinstance(n, LeafList):
+                    create_leaflist(args, schema, n, doc, k, v)
+                else:
+                    doc.add_leaf(k, None, eval_leaf_value(n, v))
 
 
 def process_leaf_default(args, schema, s_node):
