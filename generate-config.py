@@ -611,6 +611,7 @@ def f_random_identityref(ctx, dt, r, strict=True):
 
 def f_random_leafref(ctx, dt, r, strict=True):
     schema = ctx.schema
+    module = ctx.module
     node = ctx.node
     path = r.split('/')
     if path[0] == '..':
@@ -668,9 +669,9 @@ def generate_random_value(args, schema, module, node, datatype):
         g = random_datatype.get(dt)
         if g:
             return g(datatype)
-    try:
+    if dt in datatype_func:
         return datatype_func[dt](RandomContext(args, schema, module, node, datatype), dt, r)
-    except KeyError:
+    else:
         f_random_not_implemented(RandomContext(args, schema, module, node, datatype), dt, r)
 
 
