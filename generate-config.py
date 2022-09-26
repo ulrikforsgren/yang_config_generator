@@ -2,8 +2,11 @@
 
 import sre_parse
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from itertools import chain
 import json
+import os
 import random
+import subprocess
 import sys
 from xml.dom import minidom
 import xml.etree.ElementTree as ET
@@ -718,6 +721,55 @@ class XMLBackend(OutputBackend):
         if module:
             ns = get_ns(module, self.schema.json)
             e.set('xmlns', ns)
+
+
+#############################################################################################################
+#  Create config by iterating schema model
+#############################################################################################################
+"""
+../pyang/bin/pyang -p /src/ncs/yang \
+	      --ignore-errors --plugindir `pwd`/plugins -f pmod oc/openconfig-interfaces.yang -o oc/openconfig-interfaces.json-raw
+cat oc/openconfig-interfaces.json-raw | python3 -m json.tool - > oc/openconfig-interfaces.json
+rm oc/openconfig-interfaces.json-raw
+"""
+@subcommand([
+    argument('--bin',
+        type=str,
+        default='pyang',
+        help="pyang binary to use for compilation."
+    ),
+    argument("modules",
+         type=str, nargs="+",
+         help="YANG modules to compile."
+    ),
+    argument("-I",
+         type=str, action='append',
+         help="Directories to search for YANG modules."
+    ),
+    argument("-o",
+         type=str, default='model.json',
+         help="JSON output file."
+    ),
+    argument("--no-version-check",
+         action='store_true', default=False,
+         help="No pyang version check."
+    ),
+    argument("--ignore-errors",
+         action='store_true', default=False,
+         help="Ignore pyang errors."
+    )],
+    help="show model tree"
+)
+def cmd_compile(args, schema):
+    cmd = [args.bin,
+           '--plugindir', f'{os.getcwd()}/plugins',
+           '-f', 'pmod',
+           '-o', args.o,
+          ]
+    for i in args.I:
+        cmd += ['-p', i]
+    cmd += args.modules
+    subprocess.run(cmd)
 
 
 #############################################################################################################
@@ -1573,6 +1625,8 @@ def main():
 
     if args.subcommand is None:
         parser.print_help()
+    elif args.subcommand == "compile":
+        args.func(args, None)
     else:
         json_schema = json.loads(open(args.model).read())
         schema = Schema(json_schema)
