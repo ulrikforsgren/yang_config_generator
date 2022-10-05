@@ -44,7 +44,7 @@ For a more visually better experience you can install the 'rich' Python module a
 
 ```
 pip install rich
-./generate_config.py -m router.json complex
+./generate_config.py -m router.json complex --rich
 ```
 
 ### Generate descriptor file
