@@ -42,8 +42,10 @@ generate the configuration. This is useful for both to be used with a descriptor
 
 For a more visually better experience you can install the 'rich' Python module and add the '--rich' option.
 
-```pip install rich
-./generate_config.py -m router.json complex```
+```
+pip install rich
+./generate_config.py -m router.json complex
+```
 
 ### Generate descriptor file
 
