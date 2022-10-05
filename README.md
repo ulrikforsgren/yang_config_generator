@@ -29,9 +29,9 @@ The basic flow of using a descriptor:
 ## Usage
 ### Generate schema file "router.json" from "router.yang"
 
-Create a fast loading schema file in json format for the selected YANG modules. 
+Create a fast loading schema file in json format for the selected YANG modules.
 
-```make router.json```
+```./generate_config.py compile router.yang -o router.json```
 
 ### Analyze the complexity of the schema
 

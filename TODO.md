@@ -3,6 +3,8 @@
 ## List of unstructured things to do
  - Check descriptor file existence and print appropriate error message when not found or execution failure.
  - Check model file existence and print appropriate error message when not found.
+ - How to generate string with multiple pattern statements?
+ - invert-match not supported.
 
 ## Thoughts around datatypes
  - Handle min-elements/max-elements.

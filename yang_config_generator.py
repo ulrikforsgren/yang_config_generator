@@ -743,7 +743,7 @@ rm oc/openconfig-interfaces.json-raw
          help="YANG modules to compile."
     ),
     argument("-I",
-         type=str, action='append',
+         type=str, action='append', default=[],
          help="Directories to search for YANG modules."
     ),
     argument("-o",
@@ -1121,6 +1121,8 @@ def cmd_complex(args, schema):
                 table.add_row(f"{' ' * (indent * 4)}{kp}", f'{keys}', f'{count}')
             console.print(table)
         else:
+            print("=== Lists ===")
+            print()
             for indent, kp, keys, count in ctx.lists:
                 strkp = f"{' ' * (indent * 4)}{kp}"
                 print(f"{strkp:<120}", f'{keys:<20}', f'{count:>5}')
@@ -1134,6 +1136,8 @@ def cmd_complex(args, schema):
                 nslf_table.add_row(kp2str(lf.get_kp), lf.datatype[1])
             console.print(nslf_table)
         else:
+            print("=== Non-strict Leafrefs ===")
+            print()
             for lf in ctx.ns_leafrefs:
                 print(f'{kp2str(lf.get_kp):<120} {lf.datatype[1]}')
 
@@ -1147,6 +1151,8 @@ def cmd_complex(args, schema):
                 lf_table.add_row(kp2str(lf.get_kp), lf.datatype[1])
             console.print(lf_table)
         else:
+            print("=== Leafrefs ===")
+            print()
             for lf in ctx.leafrefs:
                 print(f'{kp2str(lf.get_kp):<120} {lf.datatype[1]}')
     if args.whens:
@@ -1159,6 +1165,8 @@ def cmd_complex(args, schema):
                 w_table.add_row(kp2str(w.get_kp), w.when)
             console.print(w_table)
         else:
+            print("=== When statements ===")
+            print()
             for w in ctx.whens:
                 print(f"{kp2str(w.get_kp):<120} {w.when}")
     if args.musts:
@@ -1171,6 +1179,8 @@ def cmd_complex(args, schema):
                 m_table.add_row(kp2str(m.get_kp), m.must)
             console.print(m_table)
         else:
+            print("=== Must statements ===")
+            print()
             for w in ctx.whens:
                 print(f"{kp2str(w.get_kp):<120} {w.when}")
     if args.patterns:
@@ -1192,6 +1202,8 @@ def cmd_complex(args, schema):
                 p_table.add_row(pattern, str(count), str(mi), str(ma))
             console.print(p_table)
         else:
+            print("=== Patterns ===")
+            print()
             for pattern, count in ctx.patterns.items():
                 strpattern = f'"{pattern}"'
                 if pattern:
