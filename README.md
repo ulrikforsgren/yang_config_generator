@@ -40,6 +40,11 @@ generate the configuration. This is useful for both to be used with a descriptor
 
 ```./generate_config.py -m router.json complex```
 
+For a more visually better experience you can install the 'rich' Python module and add the '--rich' option.
+
+```pip install rich
+./generate_config.py -m router.json complex```
+
 ### Generate descriptor file
 
 Creates a descriptor file from the schema. Currently only with containers and lists with the key leafs names.
