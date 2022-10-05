@@ -769,6 +769,17 @@ def cmd_compile(args, schema):
     for i in args.I:
         cmd += ['-p', i]
     cmd += args.modules
+    try:
+        result = subprocess.run((args.bin, '--version'), capture_output=True)
+        vstr = result.stdout.decode().strip()
+        _, version = vstr.split(' ')
+        vparts = version.split('.')
+        if vparts[0]<'2' or (vparts[0]=='2' and vparts[1]<'5'):
+            print(f"ERROR: pyang version {version} is older than 2.5.")
+            sys.exit(1)
+    except PermissionError:
+        print("ERROR: pyang not found or is not executable.")
+        sys.exit(1)
     subprocess.run(cmd)
 
 
