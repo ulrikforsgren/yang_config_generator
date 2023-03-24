@@ -21,6 +21,13 @@ endif
 PYANGOPTIONS=
 #PYANGOPTIONS=--ignore-errors
 
+YPATHBASE=$(NCS_DIR)/src/ncs/yang
+ifeq ($(YANGPATH),)
+  YPATH=$(YPATHBASE)
+else
+  YPATH=$(YPATHBASE):$(YANGPATH)
+endif
+
 all:
 	$(MAKE) tailf-ned-cisco-ios.json
 
@@ -29,9 +36,8 @@ tailf-ned-cisco-ios.json: tailf-ned-cisco-ios.yang\
 			  cliparser-extensions-v11.yang
 
 %.json-raw: %.yang
-	$(PYANGDIR)pyang -p $(NCS_DIR)/src/ncs/yang\
-	     $(PYANGOPTIONS)\
-	      --plugindir `pwd`/plugins -f pmod $< -o $@
+	$(PYANGDIR)pyang -p $(YPATH) $(PYANGOPTIONS)\
+	      --ignore-errors --plugindir `pwd`/plugins -f pmod $< -o $@
 
 ab.json-raw: a.yang b.yang
 	$(PYANGDIR)pyang -p $(NCS_DIR)/src/ncs/yang\

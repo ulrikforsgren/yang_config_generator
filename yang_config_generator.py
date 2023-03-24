@@ -530,7 +530,7 @@ def f_random_int(ctx ,dt, r):
 def f_random_string(ctx ,dt, r):
     lengths, patterns = r
     if patterns:
-        pattern = patterns[0]
+        pattern = patterns[0] # Only first pattern is used
     else:
         if ctx.args.use_unaltered_patterns:
             pattern = '.*'
@@ -830,7 +830,8 @@ class IterContext:
         self.module = None
 
 
-def create_list_entry(args, schema, doc, ch, tp, ctx):
+def create_list_entry(args, schema, doc, ch, tp, ctx, processed=None):
+    if processed is None: processed = []
     if ch.module:
         ctx.module = ch.module
     g = random_keypath.get(tp)
@@ -845,6 +846,7 @@ def create_list_entry(args, schema, doc, ch, tp, ctx):
         for ln in ch.key_leafs:
             kl = ch.children[ln]
             values.append(generate_random_value(args, schema, ctx.module, kl, kl.datatype))
+            processed.append(kl.name)
     return doc.add_list_entry(ch.name, ch.module, ch.key_leafs, values)
 
 
@@ -873,7 +875,8 @@ def add_levels(args, schema, doc, kp, ctx):
     return e
 
 
-def iter_schema(args, schema, doc, ctx=None, ch=None):
+def iter_schema(args, schema, doc, ctx=None, ch=None, processed = None):
+    processed = processed or []
     if ctx is None:
         ctx = IterContext()
         if args.path:
@@ -902,8 +905,11 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
             n = 1  # random.randint(0, 2)
             if n > 0:
                 for _ in range(0, n):
-                    e = create_list_entry(args, schema, doc, t, tp, ctx)
-                    iter_schema(args, schema, e, ctx, t)
+                    processed = []
+                    e = create_list_entry(args, schema, doc, t, tp, ctx,
+                                          processed)
+                    print(processed)
+                    iter_schema(args, schema, e, ctx, t, processed)
         elif isinstance(t, Choice):
             m = t[random.choice(list(t.choices.keys()))]
             iter_schema(args, schema, doc, ctx, m.items())
@@ -916,12 +922,13 @@ def iter_schema(args, schema, doc, ctx=None, ch=None):
                 v = generate_random_value(args, schema, ctx.module, t, t.datatype)
             doc.add_leaf(k, t.module, v)
         elif isinstance(t, Leaf):
-            g = random_keypath.get(tp)
-            if g:
-                v = g(t.datatype)
-            else:
-                v = generate_random_value(args, schema, ctx.module, t, t.datatype)
-            doc.add_leaf(k, t.module, v)
+            if k not in processed:
+                g = random_keypath.get(tp)
+                if g:
+                    v = g(t.datatype)
+                else:
+                    v = generate_random_value(args, schema, ctx.module, t, t.datatype)
+                doc.add_leaf(k, t.module, v)
         else:
             raise Exception(f"Unhandled type {type(t)}")
 
